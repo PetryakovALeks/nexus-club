@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NEXUS — Турниры</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="api.js"></script>
   <style>
     /* Filter bar */
     .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -217,101 +218,248 @@
 </footer>
 
 <script>
-const tournaments = [
-  { id:1, game:'cs2', gameName:'CS2', banner:'cs2', emoji:'🎯', title:'NEXUS CS2 Open', date:'15 июня 2025', teams:'12/16', prize:15000, prizes:[9000,4500,1500], format:'5×5, Best of 3', status:'open', fee:'Бесплатно', desc:'Открытый турнир по Counter-Strike 2. Регистрация команд по 5 человек. Формат — двойное выбывание, финал Bo3.' },
-  { id:2, game:'dota2', gameName:'Dota 2', banner:'dota', emoji:'⚔️', title:'DOTA 2 Weekly Cup', date:'18 июня 2025', teams:'8/8', prize:8000, prizes:[4800,2400,800], format:'5×5, Single elim', status:'full', fee:'200 ₽/чел', desc:'Еженедельный кубок по Dota 2. Все места заняты. Следующий турнир — 25 июня.' },
-  { id:3, game:'valorant', gameName:'Valorant', banner:'val', emoji:'💥', title:'Valorant Night League', date:'22 июня 2025', teams:'4/8', prize:10000, prizes:[6000,3000,1000], format:'5×5, Bo3', status:'open', fee:'Бесплатно', desc:'Ночной турнир по Valorant. Старт в 22:00, финал под утро. Все ПК киберспортивной зоны в вашем распоряжении.' },
-  { id:4, game:'lol', gameName:'LoL', banner:'lol', emoji:'🧙', title:'LoL Nexus Clash', date:'29 июня 2025', teams:'2/8', prize:12000, prizes:[7200,3600,1200], format:'5×5, Bo3', status:'open', fee:'150 ₽/чел', desc:'Турнир по League of Legends. Регистрация только командами по 5 человек. Разрешены любые чемпионы.' },
-  { id:5, game:'cs2', gameName:'CS2', banner:'cs2', emoji:'🎯', title:'NEXUS Pro Series #3', date:'5 июля 2025', teams:'0/8', prize:25000, prizes:[15000,7000,3000], format:'5×5, Double elim', status:'open', fee:'500 ₽/чел', desc:'Профессиональная серия NEXUS. Увеличенный призовой фонд, профессиональное судейство и трансляция.' },
-  { id:6, game:'valorant', gameName:'Valorant', banner:'mixed', emoji:'🎮', title:'NEXUS All-Stars', date:'12 июля 2025', teams:'1/16', prize:20000, prizes:[12000,5000,3000], format:'Микс-формат', status:'open', fee:'Бесплатно', desc:'Особый турнир для одиночных игроков. Ты регистрируешься сам, а мы распределяем тебя в команду по рейтингу.' },
-];
+document.addEventListener('DOMContentLoaded', async () => {
 
-const statusLabel = { open:'Регистрация открыта', full:'Мест нет', soon:'Скоро' };
-const statusBadge = { open:'badge-success', full:'badge-danger', soon:'badge-warning' };
-const dotC = { open:'dot-green', full:'dot-red', soon:'dot-yellow' };
+  let allTournaments = [];
 
-function slotPct(str) {
-  const [a,b] = str.split('/').map(Number);
-  return Math.round((a/b)*100);
-}
-function fillClass(pct) {
-  if (pct >= 100) return 'fill-full';
-  if (pct >= 75)  return 'fill-almost';
-  return 'fill-open';
-}
+  /* ════════════════════════════════════
+     ЗАГРУЗКА ТУРНИРОВ
+  ════════════════════════════════════ */
+  async function loadTournaments() {
+    try {
+      allTournaments = await TournamentsAPI.getAll();
+      renderCards(allTournaments);
+    } catch (err) {
+      document.getElementById('tournGrid').innerHTML =
+        `<p class="text-muted" style="padding:40px 0">
+           Не удалось загрузить турниры: ${err.message}
+         </p>`;
+    }
+  }
 
-function renderCards(list) {
-  const grid = document.getElementById('tournGrid');
-  if (!list.length) { grid.innerHTML = '<p class="text-muted" style="padding:40px 0">Турниры не найдены</p>'; return; }
-  grid.innerHTML = list.map(t => {
-    const pct = slotPct(t.teams);
-    return `
-    <div class="t-card">
-      <div class="t-banner ${t.banner}">
-        <div class="t-banner-info">
-          <div class="t-game-badge">${t.gameName}</div>
-          <div class="t-banner-title">${t.title}</div>
-        </div>
-        <div class="t-banner-emoji">${t.emoji}</div>
+  /* ════════════════════════════════════
+     РЕНДЕР КАРТОЧЕК
+  ════════════════════════════════════ */
+  const statusLabel = { open:'Регистрация открыта', ongoing:'Идёт', finished:'Завершён' };
+  const statusBadge = { open:'badge-success', ongoing:'badge-warning', finished:'badge-info' };
+  const dotC        = { open:'dot-green', ongoing:'dot-yellow', finished:'' };
+
+  // Эмодзи и цвет баннера по названию игры
+  function getBannerStyle(game) {
+    const g = (game || '').toLowerCase();
+    if (g.includes('cs') || g.includes('counter'))
+      return { cls: 'cs2',  emoji: '🎯' };
+    if (g.includes('dota'))
+      return { cls: 'dota', emoji: '⚔️' };
+    if (g.includes('valorant'))
+      return { cls: 'val',  emoji: '💥' };
+    if (g.includes('league') || g.includes('lol'))
+      return { cls: 'lol',  emoji: '🧙' };
+    return { cls: 'mixed', emoji: '🎮' };
+  }
+
+  function slotPct(current, max) {
+    if (!max) return 0;
+    return Math.round((current / max) * 100);
+  }
+  function fillClass(pct) {
+    if (pct >= 100) return 'fill-full';
+    if (pct >= 75)  return 'fill-almost';
+    return 'fill-open';
+  }
+
+  function renderCards(list) {
+    const grid = document.getElementById('tournGrid');
+    if (!list.length) {
+      grid.innerHTML = '<p class="text-muted" style="padding:40px 0">Турниров пока нет</p>';
+      return;
+    }
+
+    grid.innerHTML = list.map(t => {
+      const { cls, emoji } = getBannerStyle(t.game);
+      const pct  = slotPct(t.participants_count, t.max_participants);
+      const st   = t.status || 'open';
+      const fee  = parseFloat(t.entry_fee) === 0 ? 'Бесплатно' : `${t.entry_fee} ₽/чел`;
+      const date = new Date(t.start_time).toLocaleDateString('ru-RU', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      return `
+        <div class="t-card">
+          <div class="t-banner ${cls}">
+            <div class="t-banner-info">
+              <div class="t-game-badge">${t.game}</div>
+              <div class="t-banner-title">${t.title}</div>
+            </div>
+            <div class="t-banner-emoji">${emoji}</div>
+          </div>
+          <div class="t-body">
+            <div class="t-meta">
+              <div class="t-meta-item"><i class='bx bx-calendar'></i>${date}</div>
+              <div class="t-meta-item">
+                <i class='bx bx-group'></i>${t.participants_count}/${t.max_participants} команд
+              </div>
+              <div class="t-meta-item"><i class='bx bxs-wallet'></i>Взнос: ${fee}</div>
+            </div>
+            <div class="t-prize">
+              <div>
+                <div class="t-prize-label">Призовой фонд</div>
+                <div class="t-prize-val">₽ ${Number(t.prize_pool).toLocaleString('ru-RU')}</div>
+              </div>
+              <span class="badge ${statusBadge[st] || 'badge-info'}">
+                ${dotC[st] ? `<span class="status-dot ${dotC[st]}"></span>` : ''}
+                ${statusLabel[st] || st}
+              </span>
+            </div>
+            <div class="t-slots">
+              <div class="t-slots-label">
+                <span>Занято мест</span>
+                <span>${t.participants_count}/${t.max_participants}</span>
+              </div>
+              <div class="t-slots-bar">
+                <div class="t-slots-fill ${fillClass(pct)}" style="width:${pct}%"></div>
+              </div>
+            </div>
+            <div class="t-footer">
+              <button class="btn btn-ghost btn-sm" onclick="openModal(${t.id})">
+                Подробнее
+              </button>
+              ${st === 'open' && pct < 100
+                ? `<button class="btn btn-primary btn-sm"
+                           onclick="joinTournament(${t.id}, this)">
+                     <i class='bx bx-user-plus'></i> Участвовать
+                   </button>`
+                : `<button class="btn btn-ghost btn-sm" disabled style="opacity:.5">
+                     ${pct >= 100 ? 'Мест нет' : 'Закрыто'}
+                   </button>`
+              }
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ════════════════════════════════════
+     ФИЛЬТРАЦИЯ
+  ════════════════════════════════════ */
+  window.filter = function(f, btn) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    if (f === 'all')  return renderCards(allTournaments);
+    if (f === 'open') return renderCards(allTournaments.filter(t => t.status === 'open'));
+    // фильтр по игре — ищем вхождение в названии
+    renderCards(allTournaments.filter(t =>
+      (t.game || '').toLowerCase().includes(f.toLowerCase())
+    ));
+  };
+
+  /* ════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО
+  ════════════════════════════════════ */
+  window.openModal = function(id) {
+    const t = allTournaments.find(x => x.id === id);
+    if (!t) return;
+
+    const date = new Date(t.start_time).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const fee = parseFloat(t.entry_fee) === 0 ? 'Бесплатно' : `${t.entry_fee} ₽/чел`;
+    const st  = t.status || 'open';
+
+    document.getElementById('modalTitle').textContent = t.title;
+    document.getElementById('modalBody').innerHTML = `
+      <div class="badge ${statusBadge[st] || 'badge-info'} mb-4">
+        ${statusLabel[st] || st}
       </div>
-      <div class="t-body">
-        <div class="t-meta">
-          <div class="t-meta-item"><i class='bx bx-calendar'></i>${t.date}</div>
-          <div class="t-meta-item"><i class='bx bx-group'></i>${t.teams} команд</div>
-          <div class="t-meta-item"><i class='bx bx-joystick'></i>${t.format}</div>
-          <div class="t-meta-item"><i class='bx bxs-wallet'></i>Взнос: ${t.fee}</div>
+      <p style="font-size:15px;color:var(--text-1);line-height:1.75;margin-bottom:22px">
+        ${t.description || 'Описание отсутствует.'}
+      </p>
+      <div class="prize-breakdown">
+        <div class="prize-place">
+          <div class="prize-place-icon">🥇</div>
+          <div class="prize-place-label">1 место</div>
+          <div class="prize-place-val">
+            ${Math.round(Number(t.prize_pool) * 0.6).toLocaleString('ru-RU')} ₽
+          </div>
         </div>
-        <div class="t-prize">
-          <div><div class="t-prize-label">Призовой фонд</div><div class="t-prize-val">₽ ${t.prize.toLocaleString()}</div></div>
-          <span class="badge ${statusBadge[t.status]}"><span class="status-dot ${dotC[t.status]}"></span>${statusLabel[t.status]}</span>
+        <div class="prize-place">
+          <div class="prize-place-icon">🥈</div>
+          <div class="prize-place-label">2 место</div>
+          <div class="prize-place-val">
+            ${Math.round(Number(t.prize_pool) * 0.3).toLocaleString('ru-RU')} ₽
+          </div>
         </div>
-        <div class="t-slots">
-          <div class="t-slots-label"><span>Занято мест</span><span>${t.teams}</span></div>
-          <div class="t-slots-bar"><div class="t-slots-fill ${fillClass(pct)}" style="width:${pct}%"></div></div>
-        </div>
-        <div class="t-footer">
-          <button class="btn btn-ghost btn-sm" onclick="openModal(${t.id})">Подробнее</button>
-          ${t.status==='open' ? `<a href="auth.html" class="btn btn-primary btn-sm"><i class='bx bx-user-plus'></i>Участвовать</a>` : `<button class="btn btn-ghost btn-sm" disabled style="opacity:.5">Мест нет</button>`}
+        <div class="prize-place">
+          <div class="prize-place-icon">🥉</div>
+          <div class="prize-place-label">3 место</div>
+          <div class="prize-place-val">
+            ${Math.round(Number(t.prize_pool) * 0.1).toLocaleString('ru-RU')} ₽
+          </div>
         </div>
       </div>
-    </div>`;
-  }).join('');
-}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+        ${[['Игра', t.game], ['Дата', date],
+           ['Команды', `${t.participants_count}/${t.max_participants}`],
+           ['Взнос', fee]].map(([l, v]) => `
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);
+                      border-radius:var(--r);padding:12px 14px">
+            <div style="font-size:11px;color:var(--text-2);text-transform:uppercase;
+                        letter-spacing:0.5px;margin-bottom:4px">${l}</div>
+            <div style="font-size:14px;font-weight:600">${v}</div>
+          </div>`).join('')}
+      </div>`;
 
-renderCards(tournaments);
+    // Кнопка в подвале модала
+    const footerBtn = document.querySelector('.modal-footer .btn-primary');
+    if (footerBtn) {
+      if (st === 'open' && t.participants_count < t.max_participants) {
+        footerBtn.style.display = '';
+        footerBtn.onclick = () => { joinTournament(t.id, footerBtn); closeModalDirect(); };
+      } else {
+        footerBtn.style.display = 'none';
+      }
+    }
 
-function filter(f, btn) {
-  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active');
-  if (f==='all') return renderCards(tournaments);
-  if (f==='open') return renderCards(tournaments.filter(t=>t.status==='open'));
-  renderCards(tournaments.filter(t=>t.game===f));
-}
+    document.getElementById('modalOverlay').classList.add('open');
+  };
 
-function openModal(id) {
-  const t = tournaments.find(x=>x.id===id);
-  if (!t) return;
-  document.getElementById('modalTitle').textContent = t.title;
-  document.getElementById('modalBody').innerHTML = `
-    <div class="badge ${statusBadge[t.status]} mb-4"><span class="status-dot ${dotC[t.status]}"></span>${statusLabel[t.status]}</div>
-    <p style="font-size:15px;color:var(--text-1);line-height:1.75;margin-bottom:22px">${t.desc}</p>
-    <div class="prize-breakdown">
-      <div class="prize-place"><div class="prize-place-icon">🥇</div><div class="prize-place-label">1 место</div><div class="prize-place-val">${t.prizes[0].toLocaleString()} ₽</div></div>
-      <div class="prize-place"><div class="prize-place-icon">🥈</div><div class="prize-place-label">2 место</div><div class="prize-place-val">${t.prizes[1].toLocaleString()} ₽</div></div>
-      <div class="prize-place"><div class="prize-place-icon">🥉</div><div class="prize-place-label">3 место</div><div class="prize-place-val">${t.prizes[2].toLocaleString()} ₽</div></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
-      ${[['Игра',t.gameName],['Формат',t.format],['Дата',t.date],['Взнос',t.fee],['Команды',t.teams]].map(([l,v])=>`
-        <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
-          <div style="font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${l}</div>
-          <div style="font-size:14px;font-weight:600">${v}</div>
-        </div>`).join('')}
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('open');
-}
+  window.closeModal = function(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+  };
+  window.closeModalDirect = function() {
+    document.getElementById('modalOverlay').classList.remove('open');
+  };
 
-function closeModal(e) { if (e.target===document.getElementById('modalOverlay')) closeModalDirect(); }
-function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); }
+  /* ════════════════════════════════════
+     ЗАПИСЬ НА ТУРНИР
+  ════════════════════════════════════ */
+  window.joinTournament = async function(id, btn) {
+    if (!Auth.isLoggedIn()) {
+      showToast('Войди в аккаунт чтобы участвовать', 'warning');
+      setTimeout(() => window.location.href = 'auth.html', 1200);
+      return;
+    }
+
+    setLoading(btn, true);
+    try {
+      await TournamentsAPI.join(id);
+      showToast('Ты зарегистрирован на турнир! 🏆', 'success');
+
+      // Обновляем счётчик локально чтобы не перезагружать страницу
+      const t = allTournaments.find(x => x.id === id);
+      if (t) t.participants_count++;
+      renderCards(allTournaments);
+
+    } catch (err) {
+      showToast(err.message || 'Не удалось записаться', 'error');
+      setLoading(btn, false);
+    }
+  };
+
+  /* ── Запуск ── */
+  await loadTournaments();
+
+}); // конец DOMContentLoaded
 </script>
 </body>
 </html>

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NEXUS — Новости</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="api.js"></script>
   <style>
     /* Featured news */
     .featured-card {
@@ -221,71 +222,219 @@
 </footer>
 
 <script>
-const allNews = [
-  { cat:'update',    emoji:'🖥️',  color:'c1', tag:'Обновление',  title:'Новые RTX 4090 в VIP-зоне',              excerpt:'Завершили апгрейд всех VIP-машин. RTX 4090 и 64 GB RAM в каждой кабинке.',                                     date:'3 июня 2025',    author:'Команда NEXUS' },
-  { cat:'tournament',emoji:'🏆', color:'c2', tag:'Турнир',       title:'Итоги NEXUS Spring Cup',                  excerpt:'Команда «Pixel Force» забрала главный приз 20 000 ₽ в финале по CS2.',                                        date:'1 июня 2025',    author:'Арсений К.' },
-  { cat:'promo',     emoji:'🎉', color:'c3', tag:'Акция',        title:'Летние скидки — до 30% на VIP',           excerpt:'Всё лето скидка 30% на VIP-зону по выходным с 10:00 до 18:00.',                                              date:'28 мая 2025',   author:'Команда NEXUS' },
-  { cat:'update',    emoji:'🎮', color:'c4', tag:'Обновление',  title:'Новая библиотека игр — 200+ тайтлов',     excerpt:'Добавили 45 новых игр в каталог. Теперь доступны Helldivers 2, Dragon\'s Dogma 2 и другие новинки.',           date:'22 мая 2025',   author:'Команда NEXUS' },
-  { cat:'event',     emoji:'🤝', color:'c5', tag:'Событие',     title:'NEXUS подписал соглашение с ESIC',        excerpt:'NEXUS официально вступил в ESIC и будет проводить сертифицированные турниры по CS2 и Valorant.',               date:'18 мая 2025',   author:'Дирекция' },
-  { cat:'tournament',emoji:'⚔️', color:'c1', tag:'Турнир',      title:'Dota 2 League — сезон 3 стартует в июне', excerpt:'Открытый сезон с призовым фондом 30 000 ₽. Регистрация команд с 10 по 30 мая.',                                date:'15 мая 2025',   author:'Арсений К.' },
-  { cat:'promo',     emoji:'💸', color:'c2', tag:'Акция',       title:'Кэшбэк 15% на пополнение баланса',        excerpt:'До 31 мая при пополнении от 1000 ₽ получаешь 15% кэшбэк бонусными рублями.',                                  date:'10 мая 2025',   author:'Команда NEXUS' },
-  { cat:'update',    emoji:'🪑', color:'c3', tag:'Обновление',  title:'Herman Miller во всей VIP-зоне',          excerpt:'Заменили все кресла в VIP-зоне на Herman Miller Aeron. Играй в комфорте на максимуме.',                        date:'5 мая 2025',    author:'Команда NEXUS' },
-];
+document.addEventListener('DOMContentLoaded', async () => {
 
-const PER_PAGE = 5;
-let currentPage = 1;
-let filtered = [...allNews];
+  let allNews    = [];
+  let filtered   = [];
+  let currentPage = 1;
+  const PER_PAGE  = 5;
 
-function filterNews(cat, el) {
-  document.querySelectorAll('.cat-item').forEach(i=>i.classList.remove('active'));
-  el.classList.add('active');
-  filtered = cat==='all' ? [...allNews] : allNews.filter(n=>n.cat===cat);
-  currentPage = 1;
-  render();
-}
-
-function render() {
-  const start = (currentPage-1)*PER_PAGE;
-  const items = filtered.slice(start, start+PER_PAGE);
-  const grid = document.getElementById('newsGrid');
-  grid.innerHTML = items.map(n=>`
-    <div class="news-row-card">
-      <div class="news-row-img ${n.color}">${n.emoji}</div>
-      <div class="news-row-body">
-        <div class="news-row-tag">${n.tag}</div>
-        <div class="news-row-title">${n.title}</div>
-        <div class="news-row-excerpt">${n.excerpt}</div>
-        <div class="news-row-footer">
-          <span><i class='bx bx-calendar' style="margin-right:4px;color:var(--accent-neon)"></i>${n.date} · ${n.author}</span>
-          <a href="#" class="text-accent text-sm">Читать →</a>
-        </div>
-      </div>
-    </div>`).join('');
-
-  const totalPages = Math.ceil(filtered.length/PER_PAGE);
-  const pg = document.getElementById('pagination');
-  pg.innerHTML = '';
-  if (totalPages<=1) return;
-  const prev = document.createElement('button');
-  prev.className='page-btn wide'; prev.textContent='← Назад';
-  prev.disabled = currentPage===1;
-  prev.onclick = ()=>{ if(currentPage>1){currentPage--;render();} };
-  pg.appendChild(prev);
-  for (let i=1; i<=totalPages; i++) {
-    const b = document.createElement('button');
-    b.className='page-btn'+(i===currentPage?' active':'');
-    b.textContent=i;
-    b.onclick=(()=>{const p=i; return()=>{currentPage=p;render();};})();
-    pg.appendChild(b);
+  /* ════════════════════════════════════
+     ЗАГРУЗКА НОВОСТЕЙ
+  ════════════════════════════════════ */
+  async function loadNews() {
+    try {
+      allNews  = await NewsAPI.getAll();
+      filtered = [...allNews];
+      updateCategoryCounts();
+      render();
+    } catch (err) {
+      document.getElementById('newsGrid').innerHTML =
+        `<p class="text-muted" style="padding:40px 0">
+           Не удалось загрузить новости: ${err.message}
+         </p>`;
+    }
   }
-  const next = document.createElement('button');
-  next.className='page-btn wide'; next.textContent='Далее →';
-  next.disabled = currentPage===totalPages;
-  next.onclick = ()=>{ if(currentPage<totalPages){currentPage++;render();} };
-  pg.appendChild(next);
-}
 
-render();
+  /* ════════════════════════════════════
+     СЧЁТЧИКИ КАТЕГОРИЙ В САЙДБАРЕ
+  ════════════════════════════════════ */
+  function updateCategoryCounts() {
+    const counts = { all: allNews.length };
+    allNews.forEach(n => {
+      counts[n.category] = (counts[n.category] || 0) + 1;
+    });
+
+    document.querySelectorAll('.cat-item').forEach(item => {
+      const onclick = item.getAttribute('onclick') || '';
+      // вытаскиваем строку категории из onclick="filterNews('update',this)"
+      const match = onclick.match(/'([^']+)'/);
+      if (!match) return;
+      const cat = match[1];
+      const countEl = item.querySelector('.cat-count');
+      if (countEl) countEl.textContent = counts[cat] || 0;
+    });
+  }
+
+  /* ════════════════════════════════════
+     ЦВЕТ И ЭМОДЗИ ПО КАТЕГОРИИ
+  ════════════════════════════════════ */
+  const catConfig = {
+    update:     { tag: 'Обновление', emoji: '🖥️',  color: 'c1' },
+    tournament: { tag: 'Турнир',     emoji: '🏆',  color: 'c2' },
+    promo:      { tag: 'Акция',      emoji: '🎉',  color: 'c3' },
+    event:      { tag: 'Событие',    emoji: '🎮',  color: 'c4' },
+  };
+
+  function getCfg(cat) {
+    return catConfig[cat] || { tag: cat, emoji: '📰', color: 'c5' };
+  }
+
+  /* ════════════════════════════════════
+     РЕНДЕР СПИСКА
+  ════════════════════════════════════ */
+  function render() {
+    const start = (currentPage - 1) * PER_PAGE;
+    const items = filtered.slice(start, start + PER_PAGE);
+    const grid  = document.getElementById('newsGrid');
+
+    if (!items.length) {
+      grid.innerHTML = '<p class="text-muted" style="padding:40px 0">Новостей нет</p>';
+      renderPagination();
+      return;
+    }
+
+    grid.innerHTML = items.map(n => {
+      const cfg  = getCfg(n.category);
+      const date = new Date(n.created_at).toLocaleDateString('ru-RU', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+      // Короткий анонс — первые 120 символов контента
+      const excerpt = (n.content || '').replace(/<[^>]+>/g, '').slice(0, 120) +
+                      (n.content?.length > 120 ? '...' : '');
+
+      return `
+        <div class="news-row-card" onclick="openNewsArticle(${n.id})">
+          <div class="news-row-img ${cfg.color}">${cfg.emoji}</div>
+          <div class="news-row-body">
+            <div class="news-row-tag">${cfg.tag}</div>
+            <div class="news-row-title">${n.title}</div>
+            <div class="news-row-excerpt">${excerpt}</div>
+            <div class="news-row-footer">
+              <span>
+                <i class='bx bx-calendar'
+                   style="margin-right:4px;color:var(--accent-neon)"></i>
+                ${date} · ${n.author_name || 'Команда NEXUS'}
+              </span>
+              <span class="text-accent text-sm">Читать →</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    renderPagination();
+  }
+
+  /* ════════════════════════════════════
+     ПАГИНАЦИЯ
+  ════════════════════════════════════ */
+  function renderPagination() {
+    const totalPages = Math.ceil(filtered.length / PER_PAGE);
+    const pg = document.getElementById('pagination');
+    pg.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    const prev = document.createElement('button');
+    prev.className = 'page-btn wide';
+    prev.textContent = '← Назад';
+    prev.disabled = currentPage === 1;
+    prev.onclick = () => { currentPage--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    pg.appendChild(prev);
+
+    for (let i = 1; i <= totalPages; i++) {
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (i === currentPage ? ' active' : '');
+      b.textContent = i;
+      b.onclick = (p => () => { currentPage = p; render(); })(i);
+      pg.appendChild(b);
+    }
+
+    const next = document.createElement('button');
+    next.className = 'page-btn wide';
+    next.textContent = 'Далее →';
+    next.disabled = currentPage === totalPages;
+    next.onclick = () => { currentPage++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    pg.appendChild(next);
+  }
+
+  /* ════════════════════════════════════
+     ФИЛЬТР ПО КАТЕГОРИЯМ
+  ════════════════════════════════════ */
+  window.filterNews = function(cat, el) {
+    document.querySelectorAll('.cat-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    filtered     = cat === 'all' ? [...allNews] : allNews.filter(n => n.category === cat);
+    currentPage  = 1;
+    render();
+  };
+
+  /* ════════════════════════════════════
+     ОТКРЫТЬ СТАТЬЮ
+  ════════════════════════════════════ */
+  window.openNewsArticle = function(id) {
+    const n = allNews.find(x => x.id === id);
+    if (!n) return;
+
+    const cfg  = getCfg(n.category);
+    const date = new Date(n.created_at).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    // Простой модал для чтения статьи
+    let modal = document.getElementById('articleModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'articleModal';
+      modal.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:3000;
+        background:rgba(0,0,0,0.8); backdrop-filter:blur(8px);
+        align-items:flex-start; justify-content:center;
+        padding:40px 24px; overflow-y:auto;
+      `;
+      modal.innerHTML = `
+        <div style="background:var(--bg-card);border:1px solid var(--accent-border);
+                    border-radius:var(--r-xl);max-width:700px;width:100%;
+                    box-shadow:0 0 60px rgba(124,58,237,0.2)">
+          <div style="padding:24px 28px;border-bottom:1px solid var(--border);
+                      display:flex;justify-content:space-between;align-items:center">
+            <span id="articleTag" class="badge badge-accent"></span>
+            <button onclick="document.getElementById('articleModal').style.display='none'"
+                    style="background:var(--bg-elevated);border:1px solid var(--border);
+                           border-radius:var(--r);width:32px;height:32px;display:flex;
+                           align-items:center;justify-content:center;cursor:pointer;
+                           color:var(--text-1);font-size:18px">✕</button>
+          </div>
+          <div style="padding:32px 28px">
+            <h2 id="articleTitle"
+                style="font-size:clamp(18px,3vw,26px);margin-bottom:12px"></h2>
+            <div id="articleMeta"
+                 style="font-size:13px;color:var(--text-2);margin-bottom:24px;
+                        display:flex;gap:16px;flex-wrap:wrap"></div>
+            <div id="articleBody"
+                 style="font-size:15px;color:var(--text-1);line-height:1.8;
+                        white-space:pre-wrap"></div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', e => {
+        if (e.target === modal) modal.style.display = 'none';
+      });
+    }
+
+    document.getElementById('articleTag').textContent   = cfg.tag;
+    document.getElementById('articleTitle').textContent = n.title;
+    document.getElementById('articleMeta').innerHTML    = `
+      <span><i class='bx bx-calendar' style="color:var(--accent-neon);margin-right:4px"></i>${date}</span>
+      <span><i class='bx bx-user' style="color:var(--accent-neon);margin-right:4px"></i>${n.author_name || 'Команда NEXUS'}</span>`;
+    document.getElementById('articleBody').textContent  = n.content || '';
+    modal.style.display = 'flex';
+  };
+
+  /* ── Запуск ── */
+  await loadNews();
+
+}); // конец DOMContentLoaded
 </script>
 </body>
 </html>
