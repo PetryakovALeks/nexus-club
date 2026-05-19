@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Новости</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Featured news */
+    .featured-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+      display: grid; grid-template-columns: 1fr 420px;
+      transition: border-color var(--transition); margin-bottom: 40px;
+    }
+    .featured-card:hover { border-color: var(--accent-border); box-shadow: 0 0 40px rgba(124,58,237,0.1); }
+    .featured-img {
+      min-height: 340px; display: flex; align-items: center; justify-content: center;
+      font-size: 100px; position: relative;
+      background: linear-gradient(135deg, #0d0d20, #1a1040, #0d0d20);
+    }
+    .featured-img::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(to right, transparent 60%, var(--bg-card));
+    }
+    .featured-body {
+      padding: 40px 36px; display: flex; flex-direction: column; justify-content: center;
+    }
+    .featured-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-neon); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .featured-tag::before { content: ''; display: inline-block; width: 20px; height: 1px; background: var(--accent-neon); }
+    .featured-title { font-size: clamp(20px, 2.5vw, 28px); margin-bottom: 14px; line-height: 1.3; }
+    .featured-excerpt { font-size: 15px; color: var(--text-1); line-height: 1.75; margin-bottom: 24px; }
+    .featured-meta { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--text-2); margin-bottom: 24px; }
+    .featured-meta i { color: var(--accent-neon); }
+
+    /* News grid */
+    .news-layout { display: grid; grid-template-columns: 1fr 300px; gap: 32px; align-items: start; }
+
+    .news-grid { display: grid; gap: 16px; }
+    .news-row-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); overflow: hidden;
+      display: grid; grid-template-columns: 120px 1fr;
+      transition: all var(--transition); cursor: pointer;
+    }
+    .news-row-card:hover { border-color: var(--accent-border); transform: translateX(3px); }
+    .news-row-img {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; min-height: 100px;
+    }
+    .news-row-img.c1 { background: linear-gradient(135deg, #0d1020, #1a1535); }
+    .news-row-img.c2 { background: linear-gradient(135deg, #0d1a12, #112214); }
+    .news-row-img.c3 { background: linear-gradient(135deg, #1a100d, #2a1408); }
+    .news-row-img.c4 { background: linear-gradient(135deg, #0a0a18, #12102e); }
+    .news-row-img.c5 { background: linear-gradient(135deg, #0a1818, #0e2020); }
+    .news-row-body { padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; }
+    .news-row-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-neon); margin-bottom: 6px; }
+    .news-row-title { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+    .news-row-excerpt { font-size: 13px; color: var(--text-1); line-height: 1.5; margin-bottom: 10px; }
+    .news-row-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-2); }
+
+    /* Sidebar */
+    .sidebar { display: flex; flex-direction: column; gap: 20px; position: sticky; top: calc(var(--nav-h) + 24px); }
+    .sidebar-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-2); }
+    .sidebar-body { padding: 8px 0; }
+
+    .cat-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 20px; cursor: pointer; transition: background var(--transition);
+      font-size: 14px; color: var(--text-1);
+    }
+    .cat-item:hover { background: rgba(255,255,255,0.03); color: var(--text-0); }
+    .cat-item.active { color: var(--accent-neon); }
+    .cat-count { font-size: 11px; background: var(--bg-elevated); border: 1px solid var(--border); padding: 2px 8px; border-radius: 8px; color: var(--text-2); }
+
+    .tag-cloud { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag-pill {
+      padding: 5px 12px; border-radius: 14px; font-size: 12px; font-weight: 600;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text-2); cursor: pointer; transition: all var(--transition);
+    }
+    .tag-pill:hover { border-color: var(--accent-border); color: var(--accent-neon); }
+
+    .promo-banner {
+      background: var(--bg-card); border: 1px solid var(--accent-border);
+      border-radius: var(--r-lg); padding: 22px 20px; text-align: center;
+    }
+    .promo-banner::before { content: ''; display: block; height: 2px; background: linear-gradient(90deg, transparent, var(--accent-neon), transparent); margin-bottom: 18px; border-radius: 1px; }
+    .promo-banner-emoji { font-size: 36px; margin-bottom: 10px; }
+    .promo-banner-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .promo-banner-desc { font-size: 13px; color: var(--text-1); margin-bottom: 16px; line-height: 1.5; }
+
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 32px; }
+    .page-btn {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--r); border: 1px solid var(--border); background: var(--bg-card);
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all var(--transition); color: var(--text-1);
+    }
+    .page-btn:hover { border-color: var(--accent-border); color: var(--accent-neon); }
+    .page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .page-btn.wide { width: auto; padding: 0 14px; }
+
+    @media (max-width: 960px) {
+      .featured-card { grid-template-columns: 1fr; }
+      .featured-img { min-height: 180px; }
+      .featured-img::after { background: linear-gradient(to top, var(--bg-card), transparent); }
+      .news-layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo"><span class="nav-logo-icon">N</span>NEX<span>US</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html" class="active">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="auth.html" class="btn btn-ghost btn-sm">Войти</a>
+      <a href="auth.html" class="btn btn-primary btn-sm">Регистрация</a>
+      <button class="nav-burger" onclick="document.getElementById('nm').classList.toggle('open')"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="nav-mobile" id="nm"><a href="index.html">Главная</a><a href="catalog.html">Каталог</a><a href="tariffs.html">Тарифы</a><a href="tournaments.html">Турниры</a><a href="news.html">Новости</a><a href="auth.html">Войти</a></div>
+
+<div class="page-wrapper">
+  <div class="page-hero">
+    <div class="container">
+      <div class="breadcrumb"><a href="index.html">Главная</a><span class="breadcrumb-sep">/</span><span>Новости</span></div>
+      <h1>Новости и акции</h1>
+      <p>Обновления клуба, результаты турниров и эксклюзивные предложения</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:40px">
+    <div class="container">
+
+      <!-- Featured -->
+      <div class="featured-card">
+        <div class="featured-img">🖥️</div>
+        <div class="featured-body">
+          <div class="featured-tag">Обновление оборудования</div>
+          <h2 class="featured-title">Полный апгрейд VIP-зоны: RTX 4090 и Herman Miller в каждой кабинке</h2>
+          <div class="featured-meta">
+            <span><i class='bx bx-calendar'></i> 3 июня 2025</span>
+            <span><i class='bx bx-user'></i> Команда NEXUS</span>
+          </div>
+          <p class="featured-excerpt">Завершили масштабный апгрейд VIP-зоны. Теперь в каждой из 12 кабинок стоит RTX 4090, 64 ГБ DDR5, монитор 4K 240 Гц и кресло Herman Miller Aeron. Это лучшее железо в городе.</p>
+          <a href="#" class="btn btn-primary">Читать полностью <i class='bx bx-right-arrow-alt'></i></a>
+        </div>
+      </div>
+
+      <!-- News + Sidebar -->
+      <div class="news-layout">
+        <div>
+          <div class="news-grid" id="newsGrid"></div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <!-- Categories -->
+          <div class="sidebar-card">
+            <div class="sidebar-header">Категории</div>
+            <div class="sidebar-body">
+              <div class="cat-item active" onclick="filterNews('all',this)"><span>Все новости</span><span class="cat-count">14</span></div>
+              <div class="cat-item" onclick="filterNews('update',this)"><span>Обновления</span><span class="cat-count">5</span></div>
+              <div class="cat-item" onclick="filterNews('tournament',this)"><span>Турниры</span><span class="cat-count">4</span></div>
+              <div class="cat-item" onclick="filterNews('promo',this)"><span>Акции</span><span class="cat-count">3</span></div>
+              <div class="cat-item" onclick="filterNews('event',this)"><span>События</span><span class="cat-count">2</span></div>
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="sidebar-card">
+            <div class="sidebar-header">Теги</div>
+            <div class="tag-cloud">
+              <span class="tag-pill">CS2</span>
+              <span class="tag-pill">Dota 2</span>
+              <span class="tag-pill">Valorant</span>
+              <span class="tag-pill">RTX 4090</span>
+              <span class="tag-pill">VIP</span>
+              <span class="tag-pill">Турнир</span>
+              <span class="tag-pill">Скидка</span>
+              <span class="tag-pill">Ночной</span>
+              <span class="tag-pill">Апгрейд</span>
+            </div>
+          </div>
+
+          <!-- Promo banner -->
+          <div class="promo-banner">
+            <div class="promo-banner-emoji">🎁</div>
+            <div class="promo-banner-title">Бонус новичкам</div>
+            <div class="promo-banner-desc">Зарегистрируйся и получи <strong class="text-accent">1 час бесплатно</strong> при пополнении от 500 ₽</div>
+            <a href="auth.html" class="btn btn-primary btn-block btn-sm">Получить бонус</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div><div class="footer-logo">NEX<span>US</span></div><p class="footer-desc">Игровой клуб нового поколения.</p></div>
+      <div><div class="footer-col-title">Навигация</div><ul class="footer-links"><li><a href="index.html">Главная</a></li><li><a href="catalog.html">Каталог</a></li><li><a href="tariffs.html">Тарифы</a></li><li><a href="tournaments.html">Турниры</a></li></ul></div>
+      <div><div class="footer-col-title">Аккаунт</div><ul class="footer-links"><li><a href="auth.html">Вход</a></li><li><a href="profile.html">Кабинет</a></li><li><a href="booking.html">Бронирование</a></li></ul></div>
+      <div><div class="footer-col-title">Контакты</div><ul class="footer-links"><li><a href="#">ул. Киберспортивная, 1</a></li><li><a href="tel:+79991234567">+7 999 123-45-67</a></li><li><a href="#">Работаем 24/7</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div class="footer-copy">© 2025 NEXUS Club</div><div class="footer-socials"><a href="#"><i class='bx bxl-vk'></i></a><a href="#"><i class='bx bxl-telegram'></i></a><a href="#"><i class='bx bxl-discord'></i></a></div></div>
+  </div>
+</footer>
+
+<script>
+const allNews = [
+  { cat:'update',    emoji:'🖥️',  color:'c1', tag:'Обновление',  title:'Новые RTX 4090 в VIP-зоне',              excerpt:'Завершили апгрейд всех VIP-машин. RTX 4090 и 64 GB RAM в каждой кабинке.',                                     date:'3 июня 2025',    author:'Команда NEXUS' },
+  { cat:'tournament',emoji:'🏆', color:'c2', tag:'Турнир',       title:'Итоги NEXUS Spring Cup',                  excerpt:'Команда «Pixel Force» забрала главный приз 20 000 ₽ в финале по CS2.',                                        date:'1 июня 2025',    author:'Арсений К.' },
+  { cat:'promo',     emoji:'🎉', color:'c3', tag:'Акция',        title:'Летние скидки — до 30% на VIP',           excerpt:'Всё лето скидка 30% на VIP-зону по выходным с 10:00 до 18:00.',                                              date:'28 мая 2025',   author:'Команда NEXUS' },
+  { cat:'update',    emoji:'🎮', color:'c4', tag:'Обновление',  title:'Новая библиотека игр — 200+ тайтлов',     excerpt:'Добавили 45 новых игр в каталог. Теперь доступны Helldivers 2, Dragon\'s Dogma 2 и другие новинки.',           date:'22 мая 2025',   author:'Команда NEXUS' },
+  { cat:'event',     emoji:'🤝', color:'c5', tag:'Событие',     title:'NEXUS подписал соглашение с ESIC',        excerpt:'NEXUS официально вступил в ESIC и будет проводить сертифицированные турниры по CS2 и Valorant.',               date:'18 мая 2025',   author:'Дирекция' },
+  { cat:'tournament',emoji:'⚔️', color:'c1', tag:'Турнир',      title:'Dota 2 League — сезон 3 стартует в июне', excerpt:'Открытый сезон с призовым фондом 30 000 ₽. Регистрация команд с 10 по 30 мая.',                                date:'15 мая 2025',   author:'Арсений К.' },
+  { cat:'promo',     emoji:'💸', color:'c2', tag:'Акция',       title:'Кэшбэк 15% на пополнение баланса',        excerpt:'До 31 мая при пополнении от 1000 ₽ получаешь 15% кэшбэк бонусными рублями.',                                  date:'10 мая 2025',   author:'Команда NEXUS' },
+  { cat:'update',    emoji:'🪑', color:'c3', tag:'Обновление',  title:'Herman Miller во всей VIP-зоне',          excerpt:'Заменили все кресла в VIP-зоне на Herman Miller Aeron. Играй в комфорте на максимуме.',                        date:'5 мая 2025',    author:'Команда NEXUS' },
+];
+
+const PER_PAGE = 5;
+let currentPage = 1;
+let filtered = [...allNews];
+
+function filterNews(cat, el) {
+  document.querySelectorAll('.cat-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  filtered = cat==='all' ? [...allNews] : allNews.filter(n=>n.cat===cat);
+  currentPage = 1;
+  render();
+}
+
+function render() {
+  const start = (currentPage-1)*PER_PAGE;
+  const items = filtered.slice(start, start+PER_PAGE);
+  const grid = document.getElementById('newsGrid');
+  grid.innerHTML = items.map(n=>`
+    <div class="news-row-card">
+      <div class="news-row-img ${n.color}">${n.emoji}</div>
+      <div class="news-row-body">
+        <div class="news-row-tag">${n.tag}</div>
+        <div class="news-row-title">${n.title}</div>
+        <div class="news-row-excerpt">${n.excerpt}</div>
+        <div class="news-row-footer">
+          <span><i class='bx bx-calendar' style="margin-right:4px;color:var(--accent-neon)"></i>${n.date} · ${n.author}</span>
+          <a href="#" class="text-accent text-sm">Читать →</a>
+        </div>
+      </div>
+    </div>`).join('');
+
+  const totalPages = Math.ceil(filtered.length/PER_PAGE);
+  const pg = document.getElementById('pagination');
+  pg.innerHTML = '';
+  if (totalPages<=1) return;
+  const prev = document.createElement('button');
+  prev.className='page-btn wide'; prev.textContent='← Назад';
+  prev.disabled = currentPage===1;
+  prev.onclick = ()=>{ if(currentPage>1){currentPage--;render();} };
+  pg.appendChild(prev);
+  for (let i=1; i<=totalPages; i++) {
+    const b = document.createElement('button');
+    b.className='page-btn'+(i===currentPage?' active':'');
+    b.textContent=i;
+    b.onclick=(()=>{const p=i; return()=>{currentPage=p;render();};})();
+    pg.appendChild(b);
+  }
+  const next = document.createElement('button');
+  next.className='page-btn wide'; next.textContent='Далее →';
+  next.disabled = currentPage===totalPages;
+  next.onclick = ()=>{ if(currentPage<totalPages){currentPage++;render();} };
+  pg.appendChild(next);
+}
+
+render();
+</script>
+</body>
+</html>

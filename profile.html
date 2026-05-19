@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Личный кабинет</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="api.js"></script>
+  <style>
+    .cabinet-layout { display: grid; grid-template-columns: 260px 1fr; gap: 28px; align-items: start; }
+
+    /* Sidebar */
+    .cabinet-sidebar { position: sticky; top: calc(var(--nav-h) + 24px); }
+
+    .profile-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 28px; text-align: center; margin-bottom: 16px;
+      position: relative; overflow: hidden;
+    }
+    .profile-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 70px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(192,132,252,0.1));
+    }
+    .avatar {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; color: white;
+      margin: 8px auto 14px; position: relative; z-index: 1;
+      box-shadow: 0 0 24px var(--accent-glow), 0 0 0 3px rgba(124,58,237,0.2);
+    }
+    .avatar-badge {
+      position: absolute; bottom: 0; right: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--green); border: 2px solid var(--bg-card);
+      box-shadow: 0 0 8px var(--green);
+    }
+    .profile-name { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
+    .profile-nick { font-size: 13px; color: var(--accent-neon); margin-bottom: 12px; }
+    .profile-level {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(124,58,237,0.1); border: 1px solid var(--accent-border);
+      border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+      color: var(--accent-neon); margin-bottom: 16px;
+    }
+
+    .balance-card {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 16px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); margin-bottom: 4px; }
+    .balance-val { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 800; color: var(--green); }
+
+    /* Nav menu */
+    .cabinet-nav {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+    }
+    .cabinet-nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 20px; font-size: 14px; font-weight: 500;
+      color: var(--text-1); cursor: pointer; transition: all var(--transition);
+      border-bottom: 1px solid var(--border);
+    }
+    .cabinet-nav-item:last-child { border-bottom: none; }
+    .cabinet-nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text-0); }
+    .cabinet-nav-item.active { background: rgba(124,58,237,0.08); color: var(--accent-neon); border-right: 2px solid var(--accent-neon); }
+    .cabinet-nav-item i { font-size: 18px; width: 20px; }
+    .cabinet-nav-badge { margin-left: auto; font-size: 11px; font-weight: 700; background: var(--accent); color: white; padding: 2px 7px; border-radius: 10px; }
+
+    /* Content panels */
+    .cabinet-content .tab-pane { display: none; }
+    .cabinet-content .tab-pane.active { display: block; }
+
+    /* Booking cards */
+    .booking-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); overflow: hidden; margin-bottom: 12px;
+      transition: border-color var(--transition);
+    }
+    .booking-card:hover { border-color: var(--accent-border); }
+    .booking-card-header {
+      padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .booking-id { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; }
+    .booking-body { padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; }
+    .booking-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-2); margin-bottom: 4px; }
+    .booking-field-val { font-size: 14px; font-weight: 600; }
+    .booking-card-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* Transaction history */
+    .tx-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-icon {
+      width: 38px; height: 38px; border-radius: var(--r); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .tx-icon.plus  { background: rgba(34,197,94,0.1); color: var(--green); }
+    .tx-icon.minus { background: rgba(239,68,68,0.1); color: var(--red); }
+    .tx-info { flex: 1; margin-left: 14px; }
+    .tx-title { font-size: 14px; font-weight: 500; }
+    .tx-date  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+    .tx-amount { font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700; }
+    .tx-amount.plus  { color: var(--green); }
+    .tx-amount.minus { color: var(--red); }
+
+    /* Tournament participation */
+    .my-tourn-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 18px 22px;
+      display: flex; align-items: center; gap: 16px; margin-bottom: 12px;
+      transition: border-color var(--transition);
+    }
+    .my-tourn-card:hover { border-color: var(--accent-border); }
+    .my-tourn-icon { font-size: 32px; width: 52px; text-align: center; flex-shrink: 0; }
+    .my-tourn-info { flex: 1; }
+    .my-tourn-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .my-tourn-meta { font-size: 13px; color: var(--text-2); }
+    .my-tourn-result { text-align: right; }
+    .my-tourn-place { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 800; }
+
+    /* Profile edit form */
+    .avatar-upload { position: relative; display: inline-block; margin-bottom: 20px; }
+    .avatar-upload-btn {
+      position: absolute; bottom: 0; right: 0;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); border: 2px solid var(--bg-card);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: white; font-size: 14px; transition: all var(--transition);
+    }
+    .avatar-upload-btn:hover { transform: scale(1.1); }
+    .avatar-lg { width: 88px; height: 88px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 900; color: white; box-shadow: 0 0 24px var(--accent-glow); }
+
+    /* Top up modal */
+    .topup-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .topup-amount {
+      padding: 14px; text-align: center; font-weight: 700;
+      border-radius: var(--r); border: 1px solid var(--border);
+      background: var(--bg-elevated); cursor: pointer; transition: all var(--transition);
+      font-family: 'Orbitron', sans-serif; font-size: 16px;
+    }
+    .topup-amount:hover { border-color: var(--accent-border); color: var(--accent-neon); }
+    .topup-amount.selected { border-color: var(--accent); background: rgba(124,58,237,0.1); color: var(--accent-neon); }
+
+    .modal-overlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--bg-card); border:1px solid var(--accent-border); border-radius:var(--r-xl); max-width:480px; width:100%; box-shadow:0 0 60px rgba(124,58,237,0.25); }
+    .modal-header { padding:22px 26px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .modal-close { width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--text-1);font-size:18px; }
+    .modal-close:hover{color:var(--text-0);}
+    .modal-body { padding:24px 26px; }
+    .modal-footer { padding:18px 26px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+
+    @media (max-width: 900px) {
+      .cabinet-layout { grid-template-columns: 1fr; }
+      .cabinet-sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo"><span class="nav-logo-icon">N</span>NEX<span>US</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="booking.html" class="btn btn-primary btn-sm"><i class='bx bx-calendar-plus'></i> Забронировать</a>
+      <a href="auth.html" class="btn btn-ghost btn-sm"><i class='bx bx-log-out'></i> Выйти</a>
+      <button class="nav-burger" onclick="document.getElementById('nm').classList.toggle('open')"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="nav-mobile" id="nm"><a href="index.html">Главная</a><a href="catalog.html">Каталог</a><a href="tariffs.html">Тарифы</a><a href="tournaments.html">Турниры</a><a href="auth.html">Выйти</a></div>
+
+<div class="page-wrapper">
+  <div class="page-hero">
+    <div class="container">
+      <div class="breadcrumb"><a href="index.html">Главная</a><span class="breadcrumb-sep">/</span><span>Личный кабинет</span></div>
+      <h1>Личный кабинет</h1>
+      <p>Управляй бронированиями, балансом и профилем</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:36px">
+    <div class="container">
+      <div class="cabinet-layout">
+
+        <!-- Sidebar -->
+        <div class="cabinet-sidebar">
+          <div class="profile-card">
+            <div class="avatar">
+              P
+              <div class="avatar-badge"></div>
+            </div>
+            <div class="profile-name">Павел Громов</div>
+            <div class="profile-nick">@ProGamer777</div>
+            <div class="profile-level"><i class='bx bxs-star'></i> Уровень 12 · Ветеран</div>
+          </div>
+
+          <div class="balance-card">
+            <div>
+              <div class="balance-label">Баланс</div>
+              <div class="balance-val">1 200 ₽</div>
+            </div>
+            <button class="btn btn-success btn-sm" onclick="openTopup()"><i class='bx bx-plus'></i> Пополнить</button>
+          </div>
+
+          <div class="cabinet-nav">
+            <div class="cabinet-nav-item active" onclick="switchPane('bookings',this)"><i class='bx bx-calendar'></i> Бронирования <span class="cabinet-nav-badge">3</span></div>
+            <div class="cabinet-nav-item" onclick="switchPane('wallet',this)"><i class='bx bxs-wallet'></i> Кошелёк</div>
+            <div class="cabinet-nav-item" onclick="switchPane('tournaments',this)"><i class='bx bx-trophy'></i> Мои турниры</div>
+            <div class="cabinet-nav-item" onclick="switchPane('settings',this)"><i class='bx bx-cog'></i> Настройки</div>
+            <div class="cabinet-nav-item" style="color:var(--red)"><i class='bx bx-log-out' style="color:var(--red)"></i> Выйти</div>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="cabinet-content">
+
+          <!-- BOOKINGS -->
+          <div class="tab-pane active" id="pane-bookings">
+            <div class="flex justify-between items-center mb-6">
+              <h2 style="font-size:20px">Мои бронирования</h2>
+              <a href="booking.html" class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Новое</a>
+            </div>
+            <div class="tabs">
+              <button class="tab-btn active" onclick="switchBookingTab('active',this)">Активные</button>
+              <button class="tab-btn" onclick="switchBookingTab('completed',this)">Завершённые</button>
+              <button class="tab-btn" onclick="switchBookingTab('cancelled',this)">Отменённые</button>
+            </div>
+
+            <!-- Active bookings -->
+            <div id="bt-active">
+              <div class="booking-card">
+                <div class="booking-card-header">
+                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48291</div><span class="badge badge-success"><span class="status-dot dot-green"></span>Активно</span></div>
+                  <div class="text-muted text-sm">Создано: 3 июня 2025</div>
+                </div>
+                <div class="booking-body">
+                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">VIP-03</div></div>
+                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">10 июня 2025</div></div>
+                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">18:00 – 21:00</div></div>
+                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">VIP · 3ч</div></div>
+                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val text-accent">540 ₽</div></div>
+                </div>
+                <div class="booking-card-footer">
+                  <button class="btn btn-ghost btn-sm">Подробнее</button>
+                  <button class="btn btn-danger btn-sm">Отменить</button>
+                </div>
+              </div>
+              <div class="booking-card">
+                <div class="booking-card-header">
+                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48305</div><span class="badge badge-success"><span class="status-dot dot-green"></span>Активно</span></div>
+                  <div class="text-muted text-sm">Создано: 4 июня 2025</div>
+                </div>
+                <div class="booking-body">
+                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">CYB-02</div></div>
+                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">12 июня 2025</div></div>
+                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">20:00 – 22:00</div></div>
+                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">Кибер · 2ч</div></div>
+                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val text-accent">240 ₽</div></div>
+                </div>
+                <div class="booking-card-footer">
+                  <button class="btn btn-ghost btn-sm">Подробнее</button>
+                  <button class="btn btn-danger btn-sm">Отменить</button>
+                </div>
+              </div>
+            </div>
+            <!-- Completed bookings -->
+            <div id="bt-completed" style="display:none">
+              <div class="booking-card">
+                <div class="booking-card-header">
+                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48100</div><span class="badge badge-info">Завершено</span></div>
+                  <div class="text-muted text-sm">28 мая 2025</div>
+                </div>
+                <div class="booking-body">
+                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">STD-07</div></div>
+                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">28 мая 2025</div></div>
+                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">15:00 – 19:00</div></div>
+                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">Стандарт · 4ч</div></div>
+                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val">320 ₽</div></div>
+                </div>
+                <div class="booking-card-footer"><button class="btn btn-ghost btn-sm">Подробнее</button></div>
+              </div>
+            </div>
+            <!-- Cancelled bookings -->
+            <div id="bt-cancelled" style="display:none">
+              <div class="booking-card" style="opacity:0.7">
+                <div class="booking-card-header">
+                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48055</div><span class="badge badge-danger">Отменено</span></div>
+                  <div class="text-muted text-sm">20 мая 2025</div>
+                </div>
+                <div class="booking-body">
+                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">VIP-05</div></div>
+                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">22 мая 2025</div></div>
+                  <div><div class="booking-field-label">Возврат</div><div class="booking-field-val text-success">+90 ₽</div></div>
+                </div>
+                <div class="booking-card-footer"><button class="btn btn-ghost btn-sm">Подробнее</button></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WALLET -->
+          <div class="tab-pane" id="pane-wallet">
+            <div class="flex justify-between items-center mb-6">
+              <h2 style="font-size:20px">Кошелёк</h2>
+              <button class="btn btn-success btn-sm" onclick="openTopup()"><i class='bx bx-plus'></i> Пополнить</button>
+            </div>
+            <!-- Balance summary -->
+            <div class="grid grid-3 mb-6" style="gap:14px">
+              <div class="card"><div class="card-body text-center"><div style="font-size:28px;font-weight:800;font-family:'Orbitron',sans-serif;color:var(--green)">1 200 ₽</div><div class="text-muted text-sm mt-2">Текущий баланс</div></div></div>
+              <div class="card"><div class="card-body text-center"><div style="font-size:28px;font-weight:800;font-family:'Orbitron',sans-serif;color:var(--accent-neon)">3 400 ₽</div><div class="text-muted text-sm mt-2">Потрачено всего</div></div></div>
+              <div class="card"><div class="card-body text-center"><div style="font-size:28px;font-weight:800;font-family:'Orbitron',sans-serif;color:var(--yellow)">170 ₽</div><div class="text-muted text-sm mt-2">Кэшбэк баллы</div></div></div>
+            </div>
+            <div class="card"><div class="card-body">
+              <div class="flex justify-between items-center mb-4"><h3 style="font-size:16px">История транзакций</h3></div>
+              <div class="tx-item"><div class="tx-icon plus"><i class='bx bx-plus'></i></div><div class="tx-info"><div class="tx-title">Пополнение баланса</div><div class="tx-date">3 июня 2025, 14:22</div></div><div class="tx-amount plus">+1 000 ₽</div></div>
+              <div class="tx-item"><div class="tx-icon minus"><i class='bx bx-minus'></i></div><div class="tx-info"><div class="tx-title">Бронирование #BK-48291 (VIP-03)</div><div class="tx-date">3 июня 2025, 14:25</div></div><div class="tx-amount minus">−540 ₽</div></div>
+              <div class="tx-item"><div class="tx-icon plus"><i class='bx bx-gift'></i></div><div class="tx-info"><div class="tx-title">Кэшбэк 5% за пополнение</div><div class="tx-date">3 июня 2025, 14:22</div></div><div class="tx-amount plus">+50 ₽</div></div>
+              <div class="tx-item"><div class="tx-icon minus"><i class='bx bx-minus'></i></div><div class="tx-info"><div class="tx-title">Бронирование #BK-48305 (CYB-02)</div><div class="tx-date">4 июня 2025, 10:00</div></div><div class="tx-amount minus">−240 ₽</div></div>
+              <div class="tx-item"><div class="tx-icon plus"><i class='bx bx-plus'></i></div><div class="tx-info"><div class="tx-title">Возврат за отмену #BK-48055</div><div class="tx-date">20 мая 2025, 16:40</div></div><div class="tx-amount plus">+90 ₽</div></div>
+              <div class="tx-item"><div class="tx-icon plus"><i class='bx bx-plus'></i></div><div class="tx-info"><div class="tx-title">Пополнение баланса</div><div class="tx-date">15 мая 2025, 09:10</div></div><div class="tx-amount plus">+2 000 ₽</div></div>
+            </div></div>
+          </div>
+
+          <!-- TOURNAMENTS -->
+          <div class="tab-pane" id="pane-tournaments">
+            <div class="flex justify-between items-center mb-6">
+              <h2 style="font-size:20px">Мои турниры</h2>
+              <a href="tournaments.html" class="btn btn-primary btn-sm">Найти турнир</a>
+            </div>
+            <div class="my-tourn-card">
+              <div class="my-tourn-icon">🎯</div>
+              <div class="my-tourn-info">
+                <div class="my-tourn-name">NEXUS CS2 Open</div>
+                <div class="my-tourn-meta">Команда: Ghost Unit · 15 июня 2025</div>
+              </div>
+              <div class="my-tourn-result"><span class="badge badge-success">Заявка подана</span></div>
+            </div>
+            <div class="my-tourn-card">
+              <div class="my-tourn-icon">⚔️</div>
+              <div class="my-tourn-info">
+                <div class="my-tourn-name">NEXUS Spring Cup — CS2</div>
+                <div class="my-tourn-meta">Команда: Ghost Unit · 1 июня 2025</div>
+              </div>
+              <div class="my-tourn-result"><div class="my-tourn-place" style="color:#94a3b8">2</div><div class="text-muted text-sm">место</div></div>
+            </div>
+            <div class="my-tourn-card">
+              <div class="my-tourn-icon">💥</div>
+              <div class="my-tourn-info">
+                <div class="my-tourn-name">Valorant Night — Апрель</div>
+                <div class="my-tourn-meta">Команда: Ghost Unit · 20 апреля 2025</div>
+              </div>
+              <div class="my-tourn-result"><div class="my-tourn-place" style="color:#c2722e">3</div><div class="text-muted text-sm">место · +4 000 ₽</div></div>
+            </div>
+          </div>
+
+          <!-- SETTINGS -->
+          <div class="tab-pane" id="pane-settings">
+            <h2 style="font-size:20px;margin-bottom:28px">Настройки профиля</h2>
+            <div class="card card-top-line"><div class="card-body">
+              <div style="display:flex;align-items:center;gap:20px;margin-bottom:28px">
+                <div class="avatar-upload">
+                  <div class="avatar-lg">P</div>
+                  <div class="avatar-upload-btn"><i class='bx bx-camera'></i></div>
+                </div>
+                <div>
+                  <div style="font-size:16px;font-weight:600;margin-bottom:4px">Павел Громов</div>
+                  <div class="text-muted text-sm">Нажми на аватар, чтобы загрузить новый</div>
+                </div>
+              </div>
+              <div class="grid grid-2" style="gap:16px">
+                <div class="form-group"><label class="form-label">Имя</label><input id="settFirstName" type="text" class="form-input" value="Павел"></div>
+                <div class="form-group"><label class="form-label">Фамилия</label><input id="settLastName" type="text" class="form-input" value="Громов"></div>
+                <div class="form-group"><label class="form-label">Игровой ник</label><input id="settUsername" type="text" class="form-input" value="ProGamer777"></div>
+                <div class="form-group"><label class="form-label">Телефон</label><input id="settPhone" type="tel" class="form-input" value="+7 916 555-12-34"></div>
+              </div>
+              <div class="form-group"><label class="form-label">Email</label><input id="settEmail" type="email" class="form-input" value="progamer777@mail.ru"></div>
+              <hr class="divider" style="margin:24px 0">
+              <h3 style="font-size:16px;margin-bottom:18px">Сменить пароль</h3>
+              <div class="grid grid-2" style="gap:16px">
+                <div class="form-group"><label class="form-label">Текущий пароль</label><input type="password" class="form-input" placeholder="••••••••"></div>
+                <div></div>
+                <div class="form-group"><label class="form-label">Новый пароль</label><input type="password" class="form-input" placeholder="••••••••"></div>
+                <div class="form-group"><label class="form-label">Повторить пароль</label><input type="password" class="form-input" placeholder="••••••••"></div>
+              </div>
+              <div class="flex gap-3 mt-4">
+                <button id="saveSettBtn" onclick="saveSettings()" class="btn btn-primary">Сохранить изменения</button>
+                <button class="btn btn-ghost">Отмена</button>
+              </div>
+            </div></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- TOP UP MODAL -->
+<div class="modal-overlay" id="topupModal" onclick="if(event.target===this)closeTopup()">
+  <div class="modal">
+    <div class="modal-header"><h3 style="font-size:18px">Пополнение баланса</h3><button class="modal-close" onclick="closeTopup()"><i class='bx bx-x'></i></button></div>
+    <div class="modal-body">
+      <div class="topup-amounts">
+        <div class="topup-amount" onclick="selectAmount(this,'200')">200 ₽</div>
+        <div class="topup-amount selected" onclick="selectAmount(this,'500')">500 ₽</div>
+        <div class="topup-amount" onclick="selectAmount(this,'1000')">1 000 ₽</div>
+        <div class="topup-amount" onclick="selectAmount(this,'2000')">2 000 ₽</div>
+        <div class="topup-amount" onclick="selectAmount(this,'3000')">3 000 ₽</div>
+        <div class="topup-amount" onclick="selectAmount(this,'5000')">5 000 ₽</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Или введи сумму вручную</label>
+        <input type="number" class="form-input" id="customAmount" placeholder="Минимум 50 ₽" min="50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Способ оплаты</label>
+        <select class="form-input">
+          <option>💳 Банковская карта</option>
+          <option>📱 СБП (Система быстрых платежей)</option>
+          <option>🏦 Сбербанк Онлайн</option>
+        </select>
+      </div>
+      <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:var(--r);padding:12px 14px;font-size:13px;color:var(--green)">
+        <i class='bx bxs-gift' style="margin-right:6px"></i> При пополнении от 1000 ₽ — кэшбэк 5% бонусными рублями
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTopup()">Отмена</button>
+      <button id="topupBtn" onclick="submitTopup()" class="btn btn-success"><i class='bx bx-check'></i> Пополнить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Защита маршрута — незалогиненных отправляем на вход ── */
+  requireAuth();
+
+  /* ══════════════════════════════════
+     НАВИГАЦИЯ ПО ВКЛАДКАМ
+  ══════════════════════════════════ */
+  function switchPane(id, el) {
+    document.querySelectorAll('.cabinet-nav-item').forEach(i=>i.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('pane-'+id).classList.add('active');
+
+    // Загружаем данные при переходе на вкладку
+    if (id === 'bookings')   loadBookings();
+    if (id === 'wallet')     loadWallet();
+    if (id === 'tournaments') loadMyTournaments();
+    if (id === 'settings')   loadProfileSettings();
+  }
+
+  function switchBookingTab(id, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['active','completed','cancelled'].forEach(t => {
+      document.getElementById('bt-'+t).style.display = t===id ? '' : 'none';
+    });
+  }
+
+  /* ══════════════════════════════════
+     ЗАГРУЗКА ПРОФИЛЯ (шапка сайдбара)
+  ══════════════════════════════════ */
+  async function loadProfileHeader() {
+    try {
+      const user = await ProfileAPI.get();
+
+      // Аватар — первая буква ника
+      document.querySelector('.avatar').textContent = (user.username || 'U')[0].toUpperCase();
+      document.querySelector('.profile-name').textContent = `${user.first_name} ${user.last_name}`;
+      document.querySelector('.profile-nick').textContent = `@${user.username}`;
+      document.querySelector('.balance-val').textContent  = formatMoney(user.balance);
+
+      // Сохраняем актуальные данные пользователя в localStorage
+      localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(user));
+
+    } catch (err) {
+      // Если токен протух — requireAuth уже отправит на вход
+      console.warn('Не удалось загрузить профиль:', err.message);
+    }
+  }
+
+  /* ══════════════════════════════════
+     БРОНИРОВАНИЯ
+  ══════════════════════════════════ */
+  const statusConfig = {
+    active:    { badge: 'badge-success', label: 'Активно',    dot: 'dot-green' },
+    completed: { badge: 'badge-info',    label: 'Завершено',  dot: '' },
+    cancelled: { badge: 'badge-danger',  label: 'Отменено',   dot: 'dot-red'  },
+  };
+
+  async function loadBookings() {
+    try {
+      const bookings = await BookingsAPI.getMy();
+      const groups = { active: [], completed: [], cancelled: [] };
+      bookings.forEach(b => { if (groups[b.status]) groups[b.status].push(b); });
+
+      ['active','completed','cancelled'].forEach(status => {
+        const container = document.getElementById('bt-' + status);
+        const list = groups[status];
+
+        if (!list.length) {
+          container.innerHTML = `<p class="text-muted" style="padding:32px 0 0;text-align:center">Нет бронирований</p>`;
+          return;
+        }
+
+        const cfg = statusConfig[status];
+        container.innerHTML = list.map(b => `
+          <div class="booking-card">
+            <div class="booking-card-header">
+              <div class="flex items-center gap-3">
+                <div class="booking-id">#${b.id}</div>
+                <span class="badge ${cfg.badge}">
+                  ${cfg.dot ? `<span class="status-dot ${cfg.dot}"></span>` : ''}
+                  ${cfg.label}
+                </span>
+              </div>
+              <div class="text-muted text-sm">Создано: ${formatDate(b.created_at)}</div>
+            </div>
+            <div class="booking-body">
+              <div><div class="booking-field-label">Место</div><div class="booking-field-val">${b.pc_label || b.pc_id}</div></div>
+              <div><div class="booking-field-label">Дата</div><div class="booking-field-val">${formatDate(b.start_time)}</div></div>
+              <div><div class="booking-field-label">Время</div><div class="booking-field-val">${formatTime(b.start_time)} – ${formatTime(b.end_time)}</div></div>
+              <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">${b.tariff_name || '—'}</div></div>
+              <div><div class="booking-field-label">Сумма</div><div class="booking-field-val text-accent">${formatMoney(b.total_price)}</div></div>
+            </div>
+            <div class="booking-card-footer">
+              <button class="btn btn-ghost btn-sm">Подробнее</button>
+              ${status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="cancelBooking(${b.id})">Отменить</button>` : ''}
+            </div>
+          </div>`).join('');
+      });
+
+    } catch (err) {
+      showToast('Не удалось загрузить бронирования', 'error');
+    }
+  }
+
+  async function cancelBooking(id) {
+    if (!confirm('Отменить бронирование? Возврат — 50% при отмене менее чем за час.')) return;
+    try {
+      await BookingsAPI.cancel(id);
+      showToast('Бронирование отменено', 'success');
+      loadBookings();
+      loadProfileHeader(); // обновить баланс
+    } catch (err) {
+      showToast('Ошибка отмены: ' + err.message, 'error');
+    }
+  }
+
+  /* ══════════════════════════════════
+     КОШЕЛЁК
+  ══════════════════════════════════ */
+  async function loadWallet() {
+    try {
+      const [profile, txs] = await Promise.all([
+        ProfileAPI.get(),
+        ProfileAPI.getTransactions(),
+      ]);
+
+      // Обновить баланс на карточках
+      document.querySelectorAll('.balance-val').forEach(el => {
+        el.textContent = formatMoney(profile.balance);
+      });
+
+      // Транзакции
+      const txContainer = document.querySelector('#pane-wallet .card .card-body > div:last-child');
+      if (!txContainer || !txs?.length) return;
+
+      txContainer.innerHTML = txs.map(tx => {
+        const isPlus = tx.amount > 0;
+        return `
+          <div class="tx-item">
+            <div class="tx-icon ${isPlus ? 'plus' : 'minus'}">
+              <i class='bx ${isPlus ? "bx-plus" : "bx-minus"}'></i>
+            </div>
+            <div class="tx-info">
+              <div class="tx-title">${tx.description || (isPlus ? 'Пополнение' : 'Списание')}</div>
+              <div class="tx-date">${formatDate(tx.created_at, { time: true })}</div>
+            </div>
+            <div class="tx-amount ${isPlus ? 'plus' : 'minus'}">
+              ${isPlus ? '+' : ''}${formatMoney(tx.amount)}
+            </div>
+          </div>`;
+      }).join('');
+
+    } catch (err) {
+      showToast('Не удалось загрузить транзакции', 'error');
+    }
+  }
+
+  /* ══════════════════════════════════
+     МОИ ТУРНИРЫ
+  ══════════════════════════════════ */
+  async function loadMyTournaments() {
+    try {
+      const list = await TournamentsAPI.getMy();
+      const container = document.querySelector('#pane-tournaments');
+      const header = container.querySelector('.flex');
+
+      if (!list.length) {
+        container.innerHTML = '';
+        container.appendChild(header);
+        container.insertAdjacentHTML('beforeend',
+          `<p class="text-muted" style="padding:32px 0;text-align:center">
+            Ты ещё не участвовал в турнирах. <a href="tournaments.html" class="text-accent">Найти турнир →</a>
+          </p>`);
+        return;
+      }
+
+      const statusBadgeMap = {
+        registered: 'badge-success',
+        completed:  'badge-info',
+        cancelled:  'badge-danger',
+      };
+
+      // Удаляем старые карточки, оставляем заголовок
+      container.querySelectorAll('.my-tourn-card').forEach(el => el.remove());
+      container.insertAdjacentHTML('beforeend', list.map(t => `
+        <div class="my-tourn-card">
+          <div class="my-tourn-icon">${t.emoji || '🎮'}</div>
+          <div class="my-tourn-info">
+            <div class="my-tourn-name">${t.title}</div>
+            <div class="my-tourn-meta">Команда: ${t.team_name || '—'} · ${formatDate(t.start_time)}</div>
+          </div>
+          <div class="my-tourn-result">
+            ${t.place
+              ? `<div class="my-tourn-place" style="color:${t.place===1?'#facc15':t.place===2?'#94a3b8':'#c2722e'}">${t.place}</div>
+                 <div class="text-muted text-sm">место${t.prize ? ' · +' + formatMoney(t.prize) : ''}</div>`
+              : `<span class="badge ${statusBadgeMap[t.status] || 'badge-info'}">Заявка подана</span>`
+            }
+          </div>
+        </div>`).join(''));
+
+    } catch (err) {
+      showToast('Не удалось загрузить турниры', 'error');
+    }
+  }
+
+  /* ══════════════════════════════════
+     НАСТРОЙКИ ПРОФИЛЯ
+  ══════════════════════════════════ */
+  async function loadProfileSettings() {
+    try {
+      const user = await ProfileAPI.get();
+      document.getElementById('settFirstName').value = user.first_name || '';
+      document.getElementById('settLastName').value  = user.last_name  || '';
+      document.getElementById('settUsername').value  = user.username   || '';
+      document.getElementById('settPhone').value     = user.phone      || '';
+      document.getElementById('settEmail').value     = user.email      || '';
+    } catch (err) {
+      showToast('Не удалось загрузить настройки', 'error');
+    }
+  }
+
+  async function saveSettings() {
+    const btn = document.getElementById('saveSettBtn');
+    setLoading(btn, true);
+    try {
+      await ProfileAPI.update({
+        first_name: document.getElementById('settFirstName').value.trim(),
+        last_name:  document.getElementById('settLastName').value.trim(),
+        username:   document.getElementById('settUsername').value.trim(),
+        phone:      document.getElementById('settPhone').value.trim(),
+        email:      document.getElementById('settEmail').value.trim(),
+      });
+      showToast('Профиль обновлён', 'success');
+      loadProfileHeader();
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  /* ══════════════════════════════════
+     ПОПОЛНЕНИЕ БАЛАНСА
+  ══════════════════════════════════ */
+  function openTopup() { document.getElementById('topupModal').classList.add('open'); }
+  function closeTopup() { document.getElementById('topupModal').classList.remove('open'); }
+  function selectAmount(el, val) {
+    document.querySelectorAll('.topup-amount').forEach(a=>a.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('customAmount').value = val;
+  }
+
+  async function submitTopup() {
+    const btn = document.getElementById('topupBtn');
+    const amount = parseInt(document.getElementById('customAmount').value) || 0;
+    if (amount < 50) { showToast('Минимальная сумма пополнения — 50 ₽', 'warning'); return; }
+    setLoading(btn, true);
+    try {
+      await ProfileAPI.topUp(amount);
+      showToast(`Баланс пополнен на ${formatMoney(amount)} 🎉`, 'success');
+      closeTopup();
+      loadProfileHeader();
+      if (document.getElementById('pane-wallet').classList.contains('active')) loadWallet();
+    } catch (err) {
+      showToast('Ошибка оплаты: ' + err.message, 'error');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  /* ══════════════════════════════════
+     ВСПОМОГАТЕЛЬНЫЕ
+  ══════════════════════════════════ */
+  function formatTime(isoString) {
+    if (!isoString) return '—';
+    return new Date(isoString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /* ── Инициализация страницы ── */
+  document.addEventListener('DOMContentLoaded', () => {
+    loadProfileHeader();
+    loadBookings(); // первая вкладка открыта сразу
+  });
+</script>
+</body>
+</html>

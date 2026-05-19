@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Тарифы</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Toggle billing */
+    .billing-toggle {
+      display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 48px;
+    }
+    .billing-label { font-size: 14px; color: var(--text-1); font-weight: 600; }
+    .billing-label.active { color: var(--text-0); }
+    .toggle-switch {
+      width: 52px; height: 28px; background: var(--bg-elevated);
+      border: 1px solid var(--border); border-radius: 14px;
+      cursor: pointer; position: relative; transition: background var(--transition);
+    }
+    .toggle-switch.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+    .toggle-knob {
+      position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: white; transition: left var(--transition);
+    }
+    .toggle-switch.on .toggle-knob { left: 27px; }
+    .billing-badge {
+      background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25);
+      color: #4ade80; font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 12px;
+    }
+
+    /* Main tariff cards */
+    .tariff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-bottom: 60px; }
+
+    .tc {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 32px 28px;
+      position: relative; overflow: hidden; transition: all 0.25s ease;
+      display: flex; flex-direction: column;
+    }
+    .tc:hover { transform: translateY(-5px); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+    .tc.highlighted {
+      border-color: var(--accent);
+      box-shadow: 0 0 40px rgba(124,58,237,0.22);
+    }
+    .tc.highlighted::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-neon), transparent);
+    }
+    .tc-glow {
+      position: absolute; top: -60px; right: -60px; width: 180px; height: 180px;
+      border-radius: 50%; pointer-events: none;
+    }
+    .tc.highlighted .tc-glow { background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%); }
+
+    .tc-popular-badge {
+      position: absolute; top: -1px; right: 24px;
+      background: var(--accent); color: white;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      padding: 5px 14px; border-radius: 0 0 10px 10px;
+    }
+
+    .tc-icon { font-size: 42px; margin-bottom: 18px; }
+    .tc-name { font-size: 22px; margin-bottom: 6px; }
+    .tc-desc { font-size: 14px; color: var(--text-1); margin-bottom: 26px; line-height: 1.6; }
+
+    .tc-price-block { margin-bottom: 28px; }
+    .tc-price-main { font-family: 'Orbitron', sans-serif; font-size: 42px; font-weight: 800; line-height: 1; }
+    .tc-price-main .cur { font-size: 20px; vertical-align: super; }
+    .tc-price-main .per { font-size: 14px; color: var(--text-2); font-family: 'Exo 2', sans-serif; font-weight: 400; }
+    .tc-price-old { font-size: 14px; color: var(--text-2); text-decoration: line-through; margin-top: 4px; }
+    .tc-save { font-size: 12px; color: var(--green); margin-top: 2px; }
+
+    .tc-features { list-style: none; margin-bottom: 28px; flex: 1; }
+    .tc-features li {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 14px; color: var(--text-1);
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .tc-features li:last-child { border-bottom: none; }
+    .tc-features i { color: var(--accent-neon); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+    .tc-features i.no { color: var(--text-2); }
+
+    /* Zone rates table */
+    .rates-section { margin-bottom: 60px; }
+    .rates-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-xl); overflow: hidden;
+    }
+    .rates-header { padding: 24px 28px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .rates-body { padding: 0; }
+    .rates-table { width: 100%; border-collapse: collapse; }
+    .rates-table thead th { padding: 14px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); border-bottom: 1px solid var(--border); text-align: left; font-weight: 700; }
+    .rates-table thead th:not(:first-child) { text-align: center; }
+    .rates-table tbody td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .rates-table tbody tr:last-child td { border-bottom: none; }
+    .rates-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .rates-table td:not(:first-child) { text-align: center; }
+    .rate-cell { font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700; }
+    .rate-cell.std  { color: #60a5fa; }
+    .rate-cell.vip  { color: var(--accent-neon); }
+    .rate-cell.cyb  { color: #22d3ee; }
+    .rate-cell.best { color: var(--green); }
+    .time-row-label { display: flex; align-items: center; gap: 10px; }
+    .time-icon { font-size: 16px; }
+
+    /* FAQ */
+    .faq-item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); overflow: hidden; margin-bottom: 10px;
+    }
+    .faq-q {
+      padding: 18px 22px; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 15px; font-weight: 600; color: var(--text-0);
+      transition: background var(--transition); user-select: none;
+    }
+    .faq-q:hover { background: rgba(255,255,255,0.03); }
+    .faq-q i { font-size: 20px; color: var(--accent-neon); transition: transform var(--transition); flex-shrink: 0; }
+    .faq-item.open .faq-q i { transform: rotate(45deg); }
+    .faq-a { display: none; padding: 0 22px 18px; font-size: 14px; color: var(--text-1); line-height: 1.75; border-top: 1px solid var(--border); padding-top: 14px; }
+    .faq-item.open .faq-a { display: block; }
+
+    @media (max-width: 900px) { .tariff-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .tariff-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo"><span class="nav-logo-icon">N</span>NEX<span>US</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html" class="active">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="auth.html" class="btn btn-ghost btn-sm">Войти</a>
+      <a href="auth.html" class="btn btn-primary btn-sm">Регистрация</a>
+      <button class="nav-burger" onclick="document.getElementById('nm').classList.toggle('open')"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="nav-mobile" id="nm"><a href="index.html">Главная</a><a href="catalog.html">Каталог</a><a href="tariffs.html">Тарифы</a><a href="tournaments.html">Турниры</a><a href="news.html">Новости</a><a href="auth.html">Войти</a></div>
+
+<div class="page-wrapper">
+  <div class="page-hero">
+    <div class="container">
+      <div class="breadcrumb"><a href="index.html">Главная</a><span class="breadcrumb-sep">/</span><span>Тарифы</span></div>
+      <h1>Тарифы и цены</h1>
+      <p>Прозрачные цены без скрытых платежей — платишь только за время</p>
+    </div>
+  </div>
+
+  <!-- MAIN TARIFF CARDS -->
+  <section class="section" style="padding-bottom:0">
+    <div class="container">
+      <div class="section-header text-center">
+        <div class="section-tag">Выбери план</div>
+        <h2>Тарифы на игровое время</h2>
+        <p>Все тарифы включают доступ к библиотеке игр, гарнитуру и стабильный интернет</p>
+      </div>
+
+      <!-- Billing toggle -->
+      <div class="billing-toggle">
+        <span class="billing-label active" id="lbl-hour">Почасово</span>
+        <div class="toggle-switch" id="billingToggle" onclick="toggleBilling()">
+          <div class="toggle-knob"></div>
+        </div>
+        <span class="billing-label" id="lbl-package">Пакеты часов <span class="billing-badge">−20%</span></span>
+      </div>
+
+      <div class="tariff-grid">
+
+        <!-- STANDARD -->
+        <div class="tc">
+          <div class="tc-icon">🎮</div>
+          <h3 class="tc-name">Стандарт</h3>
+          <p class="tc-desc">Для обычного гейминга. Все популярные игры, комфортные места.</p>
+          <div class="tc-price-block">
+            <div class="tc-price-main"><span class="cur">₽</span><span id="pr-std">80</span><span class="per">/час</span></div>
+            <div class="tc-price-old" id="pr-std-old" style="display:none">100 ₽/час</div>
+            <div class="tc-save" id="pr-std-save" style="display:none">Пакет 10ч — экономишь 200 ₽</div>
+          </div>
+          <ul class="tc-features">
+            <li><i class='bx bx-check'></i> Стандартная зона (32 ПК)</li>
+            <li><i class='bx bx-check'></i> RTX 3070–3080, 16–32 ГБ</li>
+            <li><i class='bx bx-check'></i> 144 Гц мониторы</li>
+            <li><i class='bx bx-check'></i> Гарнитура в комплекте</li>
+            <li><i class='bx bx-check'></i> Все установленные игры</li>
+            <li><i class='bx bx-check'></i> Интернет 1 Гбит/с</li>
+            <li><i class='bx bx-x no'></i> <span style="color:var(--text-2)">VIP-зона</span></li>
+          </ul>
+          <a href="booking.html" class="btn btn-outline btn-block">Выбрать</a>
+        </div>
+
+        <!-- NIGHT -->
+        <div class="tc highlighted">
+          <div class="tc-glow"></div>
+          <div class="tc-popular-badge">Популярный</div>
+          <div class="tc-icon">⚡</div>
+          <h3 class="tc-name">Ночной</h3>
+          <p class="tc-desc">С 23:00 до 09:00. Максимум игрового времени за минимальные деньги.</p>
+          <div class="tc-price-block">
+            <div class="tc-price-main"><span class="cur">₽</span><span id="pr-night">50</span><span class="per">/час</span></div>
+            <div class="tc-price-old" id="pr-night-old" style="display:none">80 ₽/час</div>
+            <div class="tc-save" id="pr-night-save" style="display:none">Пакет 8ч — экономишь 240 ₽</div>
+          </div>
+          <ul class="tc-features">
+            <li><i class='bx bx-check'></i> Любая зона по наличию</li>
+            <li><i class='bx bx-check'></i> Лучшее доступное место</li>
+            <li><i class='bx bx-check'></i> Напитки со скидкой 20%</li>
+            <li><i class='bx bx-check'></i> Гарнитура в комплекте</li>
+            <li><i class='bx bx-check'></i> Все установленные игры</li>
+            <li><i class='bx bx-check'></i> Только 23:00 – 09:00</li>
+            <li><i class='bx bx-x no'></i> <span style="color:var(--text-2)">Нельзя выбрать конкретный ПК</span></li>
+          </ul>
+          <a href="booking.html" class="btn btn-primary btn-block">Выбрать</a>
+        </div>
+
+        <!-- VIP -->
+        <div class="tc">
+          <div class="tc-icon">👑</div>
+          <h3 class="tc-name">VIP</h3>
+          <p class="tc-desc">Для тех, кто хочет лучшее. Изолированная кабинка, топ железо, кресло Herman Miller.</p>
+          <div class="tc-price-block">
+            <div class="tc-price-main"><span class="cur">₽</span><span id="pr-vip">180</span><span class="per">/час</span></div>
+            <div class="tc-price-old" id="pr-vip-old" style="display:none">225 ₽/час</div>
+            <div class="tc-save" id="pr-vip-save" style="display:none">Пакет 10ч — экономишь 450 ₽</div>
+          </div>
+          <ul class="tc-features">
+            <li><i class='bx bx-check'></i> VIP-зона с кабинками</li>
+            <li><i class='bx bx-check'></i> RTX 4090, 64 ГБ RAM</li>
+            <li><i class='bx bx-check'></i> 240 Гц 4K монитор</li>
+            <li><i class='bx bx-check'></i> Herman Miller Aeron</li>
+            <li><i class='bx bx-check'></i> Напиток в подарок</li>
+            <li><i class='bx bx-check'></i> Приоритетная поддержка</li>
+            <li><i class='bx bx-check'></i> Выделенный интернет</li>
+          </ul>
+          <a href="booking.html" class="btn btn-outline btn-block">Выбрать</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- RATES TABLE -->
+  <section class="section rates-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Цены по времени</div>
+        <h2>Подробная тарифная сетка</h2>
+        <p>Цены зависят от времени суток и выбранной зоны</p>
+      </div>
+      <div class="rates-card">
+        <div class="rates-header">
+          <div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:3px">Все цены в рублях за 1 час</div>
+            <div class="text-muted text-sm">Включая НДС и доступ к библиотеке игр</div>
+          </div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:6px;font-size:13px"><span style="width:10px;height:10px;border-radius:50%;background:#60a5fa;display:inline-block"></span>Стандарт</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:13px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent-neon);display:inline-block"></span>VIP</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:13px"><span style="width:10px;height:10px;border-radius:50%;background:#22d3ee;display:inline-block"></span>Киберспорт</span>
+          </div>
+        </div>
+        <div class="rates-body">
+          <table class="rates-table">
+            <thead>
+              <tr>
+                <th>Период</th>
+                <th>Стандарт</th>
+                <th>VIP</th>
+                <th>Киберспорт</th>
+                <th>Ночной</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="time-row-label"><span class="time-icon">🌅</span><div><div style="font-weight:600;font-size:14px;color:var(--text-0)">Утро</div><div class="text-muted text-xs">08:00 – 12:00</div></div></div></td>
+                <td><span class="rate-cell std">70 ₽</span></td>
+                <td><span class="rate-cell vip">160 ₽</span></td>
+                <td><span class="rate-cell cyb">100 ₽</span></td>
+                <td><span class="text-muted">—</span></td>
+              </tr>
+              <tr>
+                <td><div class="time-row-label"><span class="time-icon">☀️</span><div><div style="font-weight:600;font-size:14px;color:var(--text-0)">День</div><div class="text-muted text-xs">12:00 – 18:00</div></div></div></td>
+                <td><span class="rate-cell std">80 ₽</span></td>
+                <td><span class="rate-cell vip">180 ₽</span></td>
+                <td><span class="rate-cell cyb">120 ₽</span></td>
+                <td><span class="text-muted">—</span></td>
+              </tr>
+              <tr>
+                <td><div class="time-row-label"><span class="time-icon">🌆</span><div><div style="font-weight:600;font-size:14px;color:var(--text-0)">Вечер</div><div class="text-muted text-xs">18:00 – 23:00</div></div></div></td>
+                <td><span class="rate-cell std">90 ₽</span></td>
+                <td><span class="rate-cell vip">200 ₽</span></td>
+                <td><span class="rate-cell cyb">130 ₽</span></td>
+                <td><span class="text-muted">—</span></td>
+              </tr>
+              <tr>
+                <td><div class="time-row-label"><span class="time-icon">🌙</span><div><div style="font-weight:600;font-size:14px;color:var(--text-0)">Ночь</div><div class="text-muted text-xs">23:00 – 09:00</div></div></div></td>
+                <td><span class="text-muted">—</span></td>
+                <td><span class="text-muted">—</span></td>
+                <td><span class="text-muted">—</span></td>
+                <td><span class="rate-cell best">50 ₽</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" style="padding-top:0">
+    <div class="container container-sm">
+      <div class="section-header">
+        <div class="section-tag">FAQ</div>
+        <h2>Частые вопросы</h2>
+      </div>
+      <div id="faqList">
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)"><span>Можно ли оплатить наличными?</span><i class='bx bx-plus'></i></div>
+          <div class="faq-a">Да, на кассе принимаем наличные и все виды банковских карт. При онлайн-бронировании оплата списывается с баланса NEXUS-аккаунта.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)"><span>Можно ли продлить сессию прямо за ПК?</span><i class='bx bx-plus'></i></div>
+          <div class="faq-a">Да! Если место не забронировано следующим игроком, можно продлить сессию прямо в личном кабинете или попросить персонал. Деньги спишутся с баланса автоматически.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)"><span>Есть ли скидки для постоянных клиентов?</span><i class='bx bx-plus'></i></div>
+          <div class="faq-a">Да, действует программа лояльности. При пополнении баланса от 1000 ₽ начисляется 5% кэшбэк, от 3000 ₽ — 10%. Кэшбэк можно тратить на будущие сессии.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)"><span>Что входит в стоимость?</span><i class='bx bx-plus'></i></div>
+          <div class="faq-a">В стоимость всех тарифов входит: доступ к установленным играм, гарнитура, мышь, клавиатура, интернет. В VIP-тарифе дополнительно — напиток и Herman Miller кресло.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)"><span>Можно ли отменить бронирование?</span><i class='bx bx-plus'></i></div>
+          <div class="faq-a">Бронирование можно отменить бесплатно за 1 час до начала сессии. При отмене менее чем за час или неявке возвращается 50% стоимости на баланс.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div><div class="footer-logo">NEX<span>US</span></div><p class="footer-desc">Игровой клуб нового поколения. Топовое железо, атмосфера победителей.</p></div>
+      <div><div class="footer-col-title">Навигация</div><ul class="footer-links"><li><a href="index.html">Главная</a></li><li><a href="catalog.html">Каталог</a></li><li><a href="tariffs.html">Тарифы</a></li><li><a href="tournaments.html">Турниры</a></li></ul></div>
+      <div><div class="footer-col-title">Аккаунт</div><ul class="footer-links"><li><a href="auth.html">Вход</a></li><li><a href="auth.html">Регистрация</a></li><li><a href="profile.html">Кабинет</a></li><li><a href="booking.html">Бронирование</a></li></ul></div>
+      <div><div class="footer-col-title">Контакты</div><ul class="footer-links"><li><a href="#">ул. Киберспортивная, 1</a></li><li><a href="tel:+79991234567">+7 999 123-45-67</a></li><li><a href="#">Работаем 24/7</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div class="footer-copy">© 2025 NEXUS Club</div><div class="footer-socials"><a href="#"><i class='bx bxl-vk'></i></a><a href="#"><i class='bx bxl-telegram'></i></a><a href="#"><i class='bx bxl-discord'></i></a></div></div>
+  </div>
+</footer>
+
+<script>
+  let isPackage = false;
+  function toggleBilling() {
+    isPackage = !isPackage;
+    document.getElementById('billingToggle').classList.toggle('on', isPackage);
+    document.getElementById('lbl-hour').classList.toggle('active', !isPackage);
+    document.getElementById('lbl-package').classList.toggle('active', isPackage);
+    const prices = { std: [80, 64], night: [50, 40], vip: [180, 144] };
+    for (const [k, [hourly, pkg]] of Object.entries(prices)) {
+      document.getElementById('pr-' + k).textContent = isPackage ? pkg : hourly;
+      document.getElementById('pr-' + k + '-old').style.display = isPackage ? '' : 'none';
+      document.getElementById('pr-' + k + '-save').style.display = isPackage ? '' : 'none';
+    }
+  }
+  function toggleFaq(el) {
+    el.parentElement.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

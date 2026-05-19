@@ -1,0 +1,135 @@
+
+<style>
+#erd svg { width: 100%; }
+</style>
+<div id="erd" style="padding: 8px 0;"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+
+const diagram = `erDiagram
+  USER {
+    int id PK
+    string username
+    string email
+    string password_hash
+    string phone
+    decimal balance
+    string role
+    datetime created_at
+  }
+  ZONE {
+    int id PK
+    string name
+    string description
+  }
+  PC {
+    int id PK
+    int zone_id FK
+    int pc_number
+    string specs
+    string status
+    decimal price_per_hour
+  }
+  TARIFF {
+    int id PK
+    string name
+    decimal price_per_hour
+    int discount_percent
+    string description
+  }
+  BOOKING {
+    int id PK
+    int user_id FK
+    int pc_id FK
+    int tariff_id FK
+    datetime start_time
+    datetime end_time
+    decimal total_price
+    string status
+    datetime created_at
+  }
+  PAYMENT {
+    int id PK
+    int user_id FK
+    int booking_id FK
+    decimal amount
+    string type
+    string status
+    datetime created_at
+  }
+  TOURNAMENT {
+    int id PK
+    string title
+    string game
+    datetime start_time
+    decimal prize_pool
+    int max_participants
+    string status
+  }
+  TOURNAMENT_PARTICIPANT {
+    int id PK
+    int tournament_id FK
+    int user_id FK
+    datetime registered_at
+  }
+  NEWS {
+    int id PK
+    int author_id FK
+    string title
+    text content
+    boolean is_published
+    datetime created_at
+  }
+
+  USER ||--o{ BOOKING : "делает"
+  PC ||--o{ BOOKING : "входит в"
+  TARIFF ||--o{ BOOKING : "применяется к"
+  ZONE ||--o{ PC : "содержит"
+  USER ||--o{ PAYMENT : "совершает"
+  BOOKING ||--o| PAYMENT : "оплачивается"
+  TOURNAMENT ||--o{ TOURNAMENT_PARTICIPANT : "включает"
+  USER ||--o{ TOURNAMENT_PARTICIPANT : "участвует"
+  USER ||--o{ NEWS : "публикует"
+`;
+
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg .row-rect-odd path, #erd svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>

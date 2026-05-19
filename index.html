@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Игровой клуб</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ─── HERO ─── */
+    .hero {
+      min-height: calc(100vh - var(--nav-h));
+      display: flex; align-items: center;
+      position: relative; overflow: hidden; padding: 80px 0;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 60% at 70% 50%, rgba(124,58,237,0.16) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 40% at 20% 80%, rgba(192,132,252,0.07) 0%, transparent 60%);
+    }
+    .hero-lines {
+      position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(90deg, rgba(124,58,237,0.05) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse at 70% 50%, rgba(0,0,0,0.6) 0%, transparent 70%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 620px; }
+    .hero-eyebrow {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 24px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2.5px; color: var(--accent-neon);
+    }
+    .hero-eyebrow-line { flex: 1; max-width: 40px; height: 1px; background: var(--accent-neon); }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 66px); font-weight: 900;
+      line-height: 1.05; margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+    .hero h1 .hl {
+      color: var(--accent-neon);
+      text-shadow: 0 0 30px rgba(192,132,252,0.5);
+    }
+    .hero-sub {
+      font-size: 17px; color: var(--text-1); max-width: 460px;
+      margin-bottom: 36px; line-height: 1.7;
+    }
+    .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 52px; }
+    .hero-badges { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero-badge {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 8px 14px;
+      font-size: 13px; color: var(--text-1);
+    }
+    .hero-badge i { color: var(--accent-neon); font-size: 15px; }
+
+    /* Floating PC card */
+    .hero-visual {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+      z-index: 1; width: 480px; pointer-events: none;
+    }
+    .hero-pc-card {
+      background: var(--bg-card); border: 1px solid var(--accent-border);
+      border-radius: var(--r-xl); padding: 24px;
+      box-shadow: 0 0 60px rgba(124,58,237,0.2), 0 40px 80px rgba(0,0,0,0.5);
+      transform: perspective(800px) rotateY(-12deg) rotateX(4deg);
+    }
+    .pc-screen {
+      background: var(--bg-0); border-radius: var(--r-lg); overflow: hidden;
+      aspect-ratio: 16/9; margin-bottom: 16px; position: relative;
+      border: 1px solid rgba(124,58,237,0.3);
+    }
+    .pc-screen-glow {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, rgba(124,58,237,0.25) 0%, transparent 70%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pc-screen-text {
+      font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900;
+      color: var(--accent-neon); text-shadow: 0 0 30px var(--accent-neon);
+      letter-spacing: 4px;
+    }
+    .pc-info { display: flex; justify-content: space-between; align-items: center; }
+    .pc-name { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700; }
+    .pc-spec { font-size: 12px; color: var(--text-2); margin-top: 3px; }
+
+    /* ─── STATS BAR ─── */
+    .stats-bar {
+      background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      position: relative; z-index: 1;
+    }
+    .stats-bar-inner {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+    .stats-bar-item {
+      padding: 28px 24px; text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stats-bar-item:last-child { border-right: none; }
+    .stats-bar-num {
+      font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 800;
+      color: var(--accent-neon); text-shadow: 0 0 16px rgba(192,132,252,0.4);
+      line-height: 1;
+    }
+    .stats-bar-label { font-size: 11px; color: var(--text-2); margin-top: 6px; text-transform: uppercase; letter-spacing: 1.5px; }
+
+    /* ─── ZONES ─── */
+    .zone-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+      transition: all var(--transition);
+    }
+    .zone-card:hover { border-color: var(--accent-border); box-shadow: 0 0 32px rgba(124,58,237,0.12); transform: translateY(-3px); }
+    .zone-card-img {
+      height: 200px; display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .zone-card-img.standard { background: linear-gradient(135deg, #0d0d1a 0%, #1a1040 100%); }
+    .zone-card-img.vip      { background: linear-gradient(135deg, #0d0d1a 0%, #2e1040 100%); }
+    .zone-card-img.cyber    { background: linear-gradient(135deg, #0d0d1a 0%, #10202a 100%); }
+    .zone-icon {
+      font-size: 60px; opacity: 0.85;
+      filter: drop-shadow(0 0 20px currentColor);
+    }
+    .zone-icon.standard { color: #60a5fa; }
+    .zone-icon.vip      { color: var(--accent-neon); }
+    .zone-icon.cyber    { color: #22d3ee; }
+    .zone-badge {
+      position: absolute; top: 14px; right: 14px;
+    }
+    .zone-body { padding: 22px; }
+    .zone-name { font-size: 18px; margin-bottom: 6px; }
+    .zone-desc { font-size: 14px; color: var(--text-1); margin-bottom: 16px; }
+    .zone-meta { display: flex; justify-content: space-between; align-items: center; }
+    .zone-price { font-family: 'Orbitron', sans-serif; font-size: 20px; color: var(--accent-neon); }
+    .zone-price-label { font-size: 11px; color: var(--text-2); }
+    .zone-pcs { font-size: 13px; color: var(--text-2); }
+
+    /* ─── TARIFFS ─── */
+    .tariff-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 28px; position: relative; overflow: hidden;
+      transition: all var(--transition);
+    }
+    .tariff-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.4); }
+    .tariff-card.popular { border-color: var(--accent); box-shadow: 0 0 30px rgba(124,58,237,0.2); }
+    .tariff-card.popular::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-neon), transparent);
+    }
+    .popular-badge {
+      position: absolute; top: -1px; right: 22px;
+      background: var(--accent); color: white;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      padding: 4px 12px; border-radius: 0 0 8px 8px;
+      text-transform: uppercase;
+    }
+    .tariff-icon { font-size: 36px; margin-bottom: 16px; }
+    .tariff-name { font-size: 20px; margin-bottom: 6px; }
+    .tariff-desc { font-size: 14px; color: var(--text-1); margin-bottom: 22px; }
+    .tariff-price { margin-bottom: 24px; }
+    .tariff-price-val { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--text-0); }
+    .tariff-price-val span { font-size: 16px; color: var(--text-2); }
+    .tariff-features { list-style: none; margin-bottom: 28px; }
+    .tariff-features li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-1); padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .tariff-features li:last-child { border-bottom: none; }
+    .tariff-features li i { color: var(--accent-neon); font-size: 16px; }
+
+    /* ─── TOURNAMENTS ─── */
+    .tourn-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+      transition: all var(--transition); display: flex; flex-direction: column;
+    }
+    .tourn-card:hover { border-color: var(--accent-border); transform: translateY(-3px); }
+    .tourn-header {
+      height: 120px; display: flex; align-items: center; justify-content: center;
+      font-size: 52px; position: relative;
+    }
+    .tourn-header.cs { background: linear-gradient(135deg, #0d1a0d, #0a2a0a); color: #4ade80; }
+    .tourn-header.dota { background: linear-gradient(135deg, #1a0d0d, #2a100a); color: #f87171; }
+    .tourn-header.val { background: linear-gradient(135deg, #1a0d12, #2a0a12); color: #fb7185; }
+    .tourn-body { padding: 20px; flex: 1; }
+    .tourn-name { font-size: 16px; margin-bottom: 8px; }
+    .tourn-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-1); margin-bottom: 14px; }
+    .tourn-meta span { display: flex; align-items: center; gap: 5px; }
+    .tourn-meta i { color: var(--accent-neon); font-size: 14px; }
+    .tourn-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+
+    /* ─── NEWS ─── */
+    .news-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+      transition: all var(--transition);
+    }
+    .news-card:hover { border-color: var(--accent-border); }
+    .news-img {
+      height: 180px; display: flex; align-items: center; justify-content: center;
+      font-size: 48px; position: relative;
+    }
+    .news-img.a1 { background: linear-gradient(135deg, #0d1020, #1a1535); }
+    .news-img.a2 { background: linear-gradient(135deg, #0d1a12, #112214); }
+    .news-img.a3 { background: linear-gradient(135deg, #1a100d, #2a1408); }
+    .news-body { padding: 20px; }
+    .news-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-neon); margin-bottom: 8px; }
+    .news-title { font-size: 16px; font-family: 'Orbitron', sans-serif; font-weight: 600; margin-bottom: 8px; line-height: 1.4; }
+    .news-excerpt { font-size: 14px; color: var(--text-1); line-height: 1.6; margin-bottom: 14px; }
+    .news-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-2); }
+
+    /* ─── CTA BANNER ─── */
+    .cta-banner {
+      background: var(--bg-card); border: 1px solid var(--accent-border);
+      border-radius: var(--r-xl); padding: 56px 48px;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .cta-banner::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(124,58,237,0.1) 0%, transparent 70%);
+    }
+    .cta-banner h2 { font-size: clamp(24px, 4vw, 38px); margin-bottom: 14px; }
+    .cta-banner p { font-size: 16px; color: var(--text-1); margin-bottom: 30px; }
+    .cta-banner .ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    @media (max-width: 1100px) {
+      .hero-visual { display: none; }
+    }
+    @media (max-width: 768px) {
+      .stats-bar-inner { grid-template-columns: repeat(2, 1fr); }
+      .stats-bar-item { border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ NAVBAR ══════════ -->
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo">
+      <span class="nav-logo-icon">N</span>
+      NEX<span>US</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="active">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="auth.html" class="btn btn-ghost btn-sm">Войти</a>
+      <a href="auth.html" class="btn btn-primary btn-sm">Регистрация</a>
+      <button class="nav-burger" onclick="toggleMenu()" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+<div class="nav-mobile" id="navMobile">
+  <a href="index.html">Главная</a>
+  <a href="catalog.html">Каталог</a>
+  <a href="tariffs.html">Тарифы</a>
+  <a href="tournaments.html">Турниры</a>
+  <a href="news.html">Новости</a>
+  <a href="auth.html">Войти</a>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-lines"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-line"></span>
+        Игровой клуб нового поколения
+        <span class="hero-eyebrow-line"></span>
+      </div>
+      <h1>ИГРАЙ НА<br><span class="hl">МАКСИМУМЕ</span></h1>
+      <p class="hero-sub">Топовые сборки, ультрабыстрый интернет, комфортная атмосфера — всё для победы. Зон три, выбор за тобой.</p>
+      <div class="hero-ctas">
+        <a href="catalog.html" class="btn btn-primary btn-lg">
+          <i class='bx bx-joystick'></i> Забронировать место
+        </a>
+        <a href="tariffs.html" class="btn btn-outline btn-lg">Тарифы</a>
+      </div>
+      <div class="hero-badges">
+        <div class="hero-badge"><i class='bx bx-check-circle'></i> Без регистрации на кассе</div>
+        <div class="hero-badge"><i class='bx bx-time'></i> Работаем 24/7</div>
+        <div class="hero-badge"><i class='bx bxs-zap'></i> Интернет 1 Гбит/с</div>
+      </div>
+    </div>
+  </div>
+  <!-- Floating PC visual -->
+  <div class="hero-visual">
+    <div class="hero-pc-card">
+      <div class="pc-screen">
+        <div class="pc-screen-glow">
+          <div class="pc-screen-text">NEXUS</div>
+        </div>
+      </div>
+      <div class="pc-info">
+        <div>
+          <div class="pc-name">PC-VIP-07</div>
+          <div class="pc-spec">RTX 4090 · i9-14900K · 32GB RAM</div>
+        </div>
+        <span class="badge badge-success"><span class="status-dot dot-green"></span> Свободен</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ STATS ══════════ -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stats-bar-inner">
+      <div class="stats-bar-item">
+        <div class="stats-bar-num">56</div>
+        <div class="stats-bar-label">Игровых мест</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-num">24/7</div>
+        <div class="stats-bar-label">Работаем</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-num">1200+</div>
+        <div class="stats-bar-label">Игроков в месяц</div>
+      </div>
+      <div class="stats-bar-item">
+        <div class="stats-bar-num">3</div>
+        <div class="stats-bar-label">Игровых зоны</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ZONES ══════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Зоны</div>
+      <h2>Выбери свою зону</h2>
+      <p>Три зоны с разным оборудованием и атмосферой — для любого игрока</p>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="zone-card">
+        <div class="zone-card-img standard">
+          <div class="zone-icon standard"><i class='bx bx-desktop'></i></div>
+          <span class="zone-badge"><span class="badge badge-info">32 места</span></span>
+        </div>
+        <div class="zone-body">
+          <h3 class="zone-name">Стандартная зона</h3>
+          <p class="zone-desc">Мощные сборки для повседневного гейминга. RTX 3080, 144 Гц мониторы.</p>
+          <div class="zone-meta">
+            <div>
+              <div class="zone-price">80 ₽<span class="zone-price-label">/час</span></div>
+            </div>
+            <a href="catalog.html" class="btn btn-ghost btn-sm">Выбрать место</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="zone-card">
+        <div class="zone-card-img vip">
+          <div class="zone-icon vip"><i class='bx bxs-crown'></i></div>
+          <span class="zone-badge"><span class="badge badge-accent">12 мест</span></span>
+        </div>
+        <div class="zone-body">
+          <h3 class="zone-name">VIP-зона</h3>
+          <p class="zone-desc">Максимальные сборки, кресла Herman Miller, изолированные кабинки.</p>
+          <div class="zone-meta">
+            <div>
+              <div class="zone-price">180 ₽<span class="zone-price-label">/час</span></div>
+            </div>
+            <a href="catalog.html" class="btn btn-primary btn-sm">Выбрать место</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="zone-card">
+        <div class="zone-card-img cyber">
+          <div class="zone-icon cyber"><i class='bx bx-network-chart'></i></div>
+          <span class="zone-badge"><span class="badge badge-cyan">12 мест</span></span>
+        </div>
+        <div class="zone-body">
+          <h3 class="zone-name">Киберспортивная</h3>
+          <p class="zone-desc">240 Гц мониторы 1ms, RTX 4080, специальная периферия. Для турниров.</p>
+          <div class="zone-meta">
+            <div>
+              <div class="zone-price">120 ₽<span class="zone-price-label">/час</span></div>
+            </div>
+            <a href="catalog.html" class="btn btn-ghost btn-sm">Выбрать место</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TARIFFS ══════════ -->
+<section class="section" style="background: var(--bg-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Тарифы</div>
+      <h2>Цены для каждого</h2>
+      <p>Гибкие тарифы: платишь только за то, что нужно</p>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="tariff-card">
+        <div class="tariff-icon">🎮</div>
+        <h3 class="tariff-name">Стандарт</h3>
+        <p class="tariff-desc">Обычное время, стандартная зона</p>
+        <div class="tariff-price">
+          <span class="tariff-price-val">80 ₽<span>/час</span></span>
+        </div>
+        <ul class="tariff-features">
+          <li><i class='bx bx-check'></i> Стандартная зона</li>
+          <li><i class='bx bx-check'></i> Гарнитура в комплекте</li>
+          <li><i class='bx bx-check'></i> Все установленные игры</li>
+          <li><i class='bx bx-check'></i> Интернет 1 Гбит/с</li>
+        </ul>
+        <a href="booking.html" class="btn btn-outline btn-block">Забронировать</a>
+      </div>
+
+      <div class="tariff-card popular">
+        <div class="popular-badge">Популярный</div>
+        <div class="tariff-icon">⚡</div>
+        <h3 class="tariff-name">Ночной</h3>
+        <p class="tariff-desc">С 23:00 до 09:00 — максимум за минимум</p>
+        <div class="tariff-price">
+          <span class="tariff-price-val">50 ₽<span>/час</span></span>
+        </div>
+        <ul class="tariff-features">
+          <li><i class='bx bx-check'></i> Любая зона по наличию</li>
+          <li><i class='bx bx-check'></i> Напитки со скидкой 20%</li>
+          <li><i class='bx bx-check'></i> Все установленные игры</li>
+          <li><i class='bx bx-check'></i> Только с 23:00 до 09:00</li>
+        </ul>
+        <a href="booking.html" class="btn btn-primary btn-block">Забронировать</a>
+      </div>
+
+      <div class="tariff-card">
+        <div class="tariff-icon">👑</div>
+        <h3 class="tariff-name">VIP</h3>
+        <p class="tariff-desc">Кабинка, максимальное железо, приватность</p>
+        <div class="tariff-price">
+          <span class="tariff-price-val">180 ₽<span>/час</span></span>
+        </div>
+        <ul class="tariff-features">
+          <li><i class='bx bx-check'></i> VIP-зона с кабинками</li>
+          <li><i class='bx bx-check'></i> RTX 4090, 32GB RAM</li>
+          <li><i class='bx bx-check'></i> Herman Miller кресло</li>
+          <li><i class='bx bx-check'></i> Напиток в подарок</li>
+        </ul>
+        <a href="booking.html" class="btn btn-outline btn-block">Забронировать</a>
+      </div>
+
+    </div>
+    <div class="text-center mt-6">
+      <a href="tariffs.html" class="btn btn-ghost">Все тарифы и условия <i class='bx bx-right-arrow-alt'></i></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TOURNAMENTS ══════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-header flex justify-between items-center">
+      <div>
+        <div class="section-tag">Киберспорт</div>
+        <h2>Ближайшие турниры</h2>
+        <p>Соревнуйся и выигрывай призы</p>
+      </div>
+      <a href="tournaments.html" class="btn btn-ghost">Все турниры <i class='bx bx-right-arrow-alt'></i></a>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="tourn-card">
+        <div class="tourn-header cs">🎯</div>
+        <div class="tourn-body">
+          <h3 class="tourn-name">NEXUS CS2 Open</h3>
+          <div class="tourn-meta">
+            <span><i class='bx bx-calendar'></i> 15 июня 2025</span>
+            <span><i class='bx bx-user'></i> 12/16 команд</span>
+            <span><i class='bx bx-trophy'></i> Призовой: 15 000 ₽</span>
+          </div>
+          <span class="badge badge-success"><span class="status-dot dot-green"></span> Регистрация открыта</span>
+        </div>
+        <div class="tourn-footer">
+          <span class="text-sm text-muted">5×5, Best of 3</span>
+          <a href="tournaments.html" class="btn btn-primary btn-sm">Участвовать</a>
+        </div>
+      </div>
+
+      <div class="tourn-card">
+        <div class="tourn-header dota">⚔️</div>
+        <div class="tourn-body">
+          <h3 class="tourn-name">DOTA 2 Weekly Cup</h3>
+          <div class="tourn-meta">
+            <span><i class='bx bx-calendar'></i> 18 июня 2025</span>
+            <span><i class='bx bx-user'></i> 8/8 команд</span>
+            <span><i class='bx bx-trophy'></i> Призовой: 8 000 ₽</span>
+          </div>
+          <span class="badge badge-danger">Мест нет</span>
+        </div>
+        <div class="tourn-footer">
+          <span class="text-sm text-muted">5×5, Single elimination</span>
+          <a href="tournaments.html" class="btn btn-ghost btn-sm">Подробнее</a>
+        </div>
+      </div>
+
+      <div class="tourn-card">
+        <div class="tourn-header val">💥</div>
+        <div class="tourn-body">
+          <h3 class="tourn-name">Valorant Night League</h3>
+          <div class="tourn-meta">
+            <span><i class='bx bx-calendar'></i> 22 июня 2025</span>
+            <span><i class='bx bx-user'></i> 4/8 команд</span>
+            <span><i class='bx bx-trophy'></i> Призовой: 10 000 ₽</span>
+          </div>
+          <span class="badge badge-success"><span class="status-dot dot-green"></span> Регистрация открыта</span>
+        </div>
+        <div class="tourn-footer">
+          <span class="text-sm text-muted">5×5, Bo3</span>
+          <a href="tournaments.html" class="btn btn-primary btn-sm">Участвовать</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ NEWS ══════════ -->
+<section class="section" style="border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="section-header flex justify-between items-center">
+      <div>
+        <div class="section-tag">Новости</div>
+        <h2>Последние события</h2>
+      </div>
+      <a href="news.html" class="btn btn-ghost">Все новости <i class='bx bx-right-arrow-alt'></i></a>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="news-card">
+        <div class="news-img a1">🖥️</div>
+        <div class="news-body">
+          <div class="news-tag">Обновление</div>
+          <h3 class="news-title">Новые RTX 4090 в VIP-зоне</h3>
+          <p class="news-excerpt">Завершили апгрейд всех VIP-машин. Теперь RTX 4090 и 64 GB RAM — в каждой кабинке.</p>
+          <div class="news-footer">
+            <span>3 июня 2025</span>
+            <a href="news.html" class="text-accent text-sm">Читать →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="news-card">
+        <div class="news-img a2">🏆</div>
+        <div class="news-body">
+          <div class="news-tag">Турнир</div>
+          <h3 class="news-title">Итоги NEXUS Spring Cup</h3>
+          <p class="news-excerpt">Команда «Pixel Force» забрала главный приз в размере 20 000 ₽ в финале по CS2.</p>
+          <div class="news-footer">
+            <span>1 июня 2025</span>
+            <a href="news.html" class="text-accent text-sm">Читать →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="news-card">
+        <div class="news-img a3">🎉</div>
+        <div class="news-body">
+          <div class="news-tag">Акция</div>
+          <h3 class="news-title">Летние скидки — до 30% на VIP</h3>
+          <p class="news-excerpt">Всё лето скидка 30% на VIP-зону по выходным с 10:00 до 18:00. Успей забронировать!</p>
+          <div class="news-footer">
+            <span>28 мая 2025</span>
+            <a href="news.html" class="text-accent text-sm">Читать →</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CTA BANNER ══════════ -->
+<section class="section" style="padding: 60px 0;">
+  <div class="container">
+    <div class="cta-banner">
+      <div class="section-tag">Готов играть?</div>
+      <h2>Начни прямо сейчас</h2>
+      <p>Зарегистрируйся и получи первый час бесплатно при пополнении баланса от 500 ₽</p>
+      <div class="ctas">
+        <a href="auth.html" class="btn btn-primary btn-lg"><i class='bx bx-user-plus'></i> Создать аккаунт</a>
+        <a href="catalog.html" class="btn btn-outline btn-lg">Посмотреть каталог</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">NEX<span>US</span></div>
+        <p class="footer-desc">Игровой клуб нового поколения. Топовое железо, атмосфера победителей и турниры каждую неделю.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Навигация</div>
+        <ul class="footer-links">
+          <li><a href="index.html">Главная</a></li>
+          <li><a href="catalog.html">Каталог мест</a></li>
+          <li><a href="tariffs.html">Тарифы</a></li>
+          <li><a href="tournaments.html">Турниры</a></li>
+          <li><a href="news.html">Новости</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Аккаунт</div>
+        <ul class="footer-links">
+          <li><a href="auth.html">Вход</a></li>
+          <li><a href="auth.html">Регистрация</a></li>
+          <li><a href="profile.html">Личный кабинет</a></li>
+          <li><a href="booking.html">Бронирование</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Контакты</div>
+        <ul class="footer-links">
+          <li><a href="#">ул. Киберспортивная, 1</a></li>
+          <li><a href="tel:+79991234567">+7 999 123-45-67</a></li>
+          <li><a href="mailto:info@nexusclub.ru">info@nexusclub.ru</a></li>
+          <li><a href="#">Работаем 24/7</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2025 NEXUS Club. Все права защищены.</div>
+      <div class="footer-socials">
+        <a href="#" title="ВКонтакте"><i class='bx bxl-vk'></i></a>
+        <a href="#" title="Telegram"><i class='bx bxl-telegram'></i></a>
+        <a href="#" title="Discord"><i class='bx bxl-discord'></i></a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function toggleMenu() {
+    document.getElementById('navMobile').classList.toggle('open');
+  }
+</script>
+</body>
+</html>

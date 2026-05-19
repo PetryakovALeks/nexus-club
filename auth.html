@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Вход и регистрация</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="api.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    .auth-layout {
+      display: grid; grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
+    }
+
+    /* ─── Left panel ─── */
+    .auth-left {
+      background: var(--bg-1); position: relative; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: center; padding: 60px;
+      border-right: 1px solid var(--border);
+    }
+    .auth-left-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 60% at 50% 40%, rgba(124,58,237,0.18) 0%, transparent 65%);
+    }
+    .auth-left-grid {
+      position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .auth-left-content { position: relative; z-index: 1; }
+
+    .auth-logo {
+      font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900;
+      letter-spacing: 3px; margin-bottom: 48px; display: flex; align-items: center; gap: 12px;
+    }
+    .auth-logo-icon {
+      width: 40px; height: 40px; background: var(--accent); border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 900; color: white;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .auth-logo span { color: var(--accent-neon); }
+
+    .auth-tagline { font-size: clamp(28px, 3.5vw, 42px); font-family: 'Orbitron', sans-serif; font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
+    .auth-tagline .hl { color: var(--accent-neon); text-shadow: 0 0 24px rgba(192,132,252,0.4); }
+    .auth-desc { font-size: 15px; color: var(--text-1); line-height: 1.75; margin-bottom: 48px; max-width: 380px; }
+
+    .auth-perks { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+    .auth-perk {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 15px; color: var(--text-1);
+    }
+    .auth-perk-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: rgba(124,58,237,0.12); border: 1px solid var(--accent-border);
+      border-radius: var(--r); display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--accent-neon);
+    }
+
+    /* ─── Right panel ─── */
+    .auth-right {
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px 40px;
+      background: var(--bg-0);
+    }
+    .auth-box { width: 100%; max-width: 420px; }
+
+    .auth-tabs {
+      display: flex; gap: 0; margin-bottom: 32px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 4px;
+    }
+    .auth-tab {
+      flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 600;
+      border-radius: var(--r); cursor: pointer; transition: all var(--transition);
+      color: var(--text-2); border: none; background: none;
+    }
+    .auth-tab.active {
+      background: var(--accent); color: white;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .auth-form { display: none; }
+    .auth-form.active { display: block; }
+
+    .auth-form-title { font-size: 22px; margin-bottom: 6px; }
+    .auth-form-sub { font-size: 14px; color: var(--text-1); margin-bottom: 28px; }
+
+    .input-icon-wrap { position: relative; }
+    .input-icon-wrap i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      font-size: 18px; color: var(--text-2); pointer-events: none;
+    }
+    .input-icon-wrap .form-input { padding-left: 44px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .divider-or {
+      display: flex; align-items: center; gap: 14px; margin: 24px 0;
+      font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: 1px;
+    }
+    .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .social-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+    .social-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 16px; font-size: 13px; font-weight: 600;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--r); cursor: pointer; transition: all var(--transition); color: var(--text-1);
+    }
+    .social-btn:hover { border-color: var(--border-light); color: var(--text-0); background: var(--bg-hover); }
+    .social-btn i { font-size: 18px; }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-1); margin-bottom: 20px;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer;
+    }
+    .checkbox-row a { color: var(--accent-light); }
+
+    .forgot-link { font-size: 13px; color: var(--accent-light); transition: color var(--transition); }
+    .forgot-link:hover { color: var(--accent-neon); }
+
+    .auth-switch { margin-top: 24px; text-align: center; font-size: 14px; color: var(--text-2); }
+    .auth-switch a { color: var(--accent-light); font-weight: 600; }
+
+    .bonus-banner {
+      background: rgba(124,58,237,0.1); border: 1px solid var(--accent-border);
+      border-radius: var(--r); padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px;
+    }
+    .bonus-banner-icon { font-size: 24px; }
+    .bonus-banner-text { font-size: 13px; color: var(--text-1); line-height: 1.5; }
+    .bonus-banner-text strong { color: var(--accent-neon); }
+
+    @media (max-width: 900px) {
+      .auth-layout { grid-template-columns: 1fr; }
+      .auth-left { display: none; }
+      .auth-right { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ NAVBAR ══════════ -->
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo">
+      <span class="nav-logo-icon">N</span>
+      NEX<span>US</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="auth.html" class="btn btn-primary btn-sm active">Войти / Регистрация</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════ AUTH LAYOUT ══════════ -->
+<div class="auth-layout" style="margin-top: var(--nav-h);">
+
+  <!-- Left panel -->
+  <div class="auth-left">
+    <div class="auth-left-bg"></div>
+    <div class="auth-left-grid"></div>
+    <div class="auth-left-content">
+      <div class="auth-logo">
+        <span class="auth-logo-icon">N</span>
+        NEX<span>US</span>
+      </div>
+      <h2 class="auth-tagline">Войди в игру.<br><span class="hl">Стань лучшим.</span></h2>
+      <p class="auth-desc">Аккаунт NEXUS — это быстрое бронирование, история игр, участие в турнирах и персональные бонусы.</p>
+      <ul class="auth-perks">
+        <li class="auth-perk">
+          <div class="auth-perk-icon"><i class='bx bx-calendar-check'></i></div>
+          <span>Бронируй места онлайн без очереди</span>
+        </li>
+        <li class="auth-perk">
+          <div class="auth-perk-icon"><i class='bx bxs-wallet'></i></div>
+          <span>Пополняй баланс и плати одним кликом</span>
+        </li>
+        <li class="auth-perk">
+          <div class="auth-perk-icon"><i class='bx bx-trophy'></i></div>
+          <span>Участвуй в турнирах и выигрывай призы</span>
+        </li>
+        <li class="auth-perk">
+          <div class="auth-perk-icon"><i class='bx bxs-gift'></i></div>
+          <span>Первый час бесплатно при регистрации</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="auth-right">
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchTab('login')">Войти</button>
+        <button class="auth-tab" onclick="switchTab('register')">Создать аккаунт</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div class="auth-form active" id="form-login">
+        <h2 class="auth-form-title">С возвращением!</h2>
+        <p class="auth-form-sub">Войди в свой аккаунт NEXUS</p>
+
+        <div class="social-btns">
+          <button class="social-btn"><i class='bx bxl-vk'></i> ВКонтакте</button>
+          <button class="social-btn"><i class='bx bxl-telegram'></i> Telegram</button>
+        </div>
+        <div class="divider-or">или</div>
+
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-envelope'></i>
+            <input type="email" id="loginEmail" class="form-input" placeholder="gamer@nexus.ru" autocomplete="email">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="flex justify-between items-center mb-2">
+            <label class="form-label" style="margin-bottom:0">Пароль</label>
+            <a href="#" class="forgot-link">Забыл пароль?</a>
+          </div>
+          <div class="input-icon-wrap">
+            <i class='bx bx-lock'></i>
+            <input type="password" id="loginPass" class="form-input" placeholder="••••••••" autocomplete="current-password">
+          </div>
+        </div>
+        <div id="loginError" class="form-error" style="display:none;margin-bottom:12px"></div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="rememberMe">
+          <label for="rememberMe">Запомнить меня</label>
+        </div>
+        <button id="loginBtn" onclick="handleLogin()" class="btn btn-primary btn-block btn-lg">
+          <i class='bx bx-log-in'></i> Войти
+        </button>
+        <div class="auth-switch">Нет аккаунта? <a href="#" onclick="switchTab('register'); return false;">Зарегистрироваться</a></div>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div class="auth-form" id="form-register">
+        <div class="bonus-banner">
+          <span class="bonus-banner-icon">🎁</span>
+          <div class="bonus-banner-text">
+            При регистрации — <strong>1 час бесплатно</strong> при первом пополнении баланса от 500 ₽
+          </div>
+        </div>
+        <h2 class="auth-form-title">Создать аккаунт</h2>
+        <p class="auth-form-sub">Присоединись к NEXUS сегодня</p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Имя</label>
+            <div class="input-icon-wrap">
+              <i class='bx bx-user'></i>
+              <input type="text" id="regFirstName" class="form-input" placeholder="Иван" autocomplete="given-name">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Фамилия</label>
+            <input type="text" id="regLastName" class="form-input" placeholder="Иванов" autocomplete="family-name">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Игровой ник</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-joystick'></i>
+            <input type="text" id="regUsername" class="form-input" placeholder="ProGamer777" autocomplete="username">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-envelope'></i>
+            <input type="email" id="regEmail" class="form-input" placeholder="gamer@nexus.ru" autocomplete="email">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Номер телефона</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-phone'></i>
+            <input type="tel" id="regPhone" class="form-input" placeholder="+7 999 000-00-00" autocomplete="tel">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Пароль</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-lock'></i>
+            <input type="password" id="regPassword" class="form-input" placeholder="Минимум 8 символов" autocomplete="new-password">
+          </div>
+          <div class="form-hint">Используй буквы, цифры и символы</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Повтори пароль</label>
+          <div class="input-icon-wrap">
+            <i class='bx bx-lock-open'></i>
+            <input type="password" id="regPassword2" class="form-input" placeholder="••••••••" autocomplete="new-password">
+          </div>
+        </div>
+        <div id="regError" class="form-error" style="display:none;margin-bottom:12px"></div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="agreeTerms">
+          <label for="agreeTerms">Согласен с <a href="#">условиями использования</a> и <a href="#">политикой конфиденциальности</a></label>
+        </div>
+        <button id="regBtn" onclick="handleRegister()" class="btn btn-primary btn-block btn-lg">
+          <i class='bx bx-user-plus'></i> Создать аккаунт
+        </button>
+        <div class="auth-switch">Уже есть аккаунт? <a href="#" onclick="switchTab('login'); return false;">Войти</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Редирект если уже залогинен ── */
+  if (Auth.isLoggedIn()) {
+    const params = new URLSearchParams(window.location.search);
+    window.location.href = params.get('next') || 'profile.html';
+  }
+
+  /* ── Переключение вкладок ── */
+  function switchTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    document.getElementById('form-' + tab).classList.add('active');
+    const tabs = document.querySelectorAll('.auth-tab');
+    if (tab === 'login') tabs[0].classList.add('active');
+    else tabs[1].classList.add('active');
+  }
+
+  /* ── Enter → submit ── */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('form-login').classList.contains('active')) handleLogin();
+    else handleRegister();
+  });
+
+  /* ══════════════════════════════════
+     ВХОД
+  ══════════════════════════════════ */
+  async function handleLogin() {
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const errEl    = document.getElementById('loginError');
+    const btn      = document.getElementById('loginBtn');
+
+    // Клиентская валидация
+    errEl.style.display = 'none';
+    if (!email)    { showLoginError('Введи email'); return; }
+    if (!password) { showLoginError('Введи пароль'); return; }
+
+    setLoading(btn, true);
+    try {
+      await AuthAPI.login(email, password);
+
+      showToast('Добро пожаловать! 👋', 'success');
+
+      // Редирект: если пришли с другой страницы — вернуть туда
+      const params  = new URLSearchParams(window.location.search);
+      const returnTo = params.get('next');
+      setTimeout(() => {
+        window.location.href = returnTo
+          ? decodeURIComponent(returnTo)
+          : 'profile.html';
+      }, 600);
+
+    } catch (err) {
+      showLoginError(err.message || 'Неверный email или пароль');
+      setLoading(btn, false);
+    }
+  }
+
+  function showLoginError(msg) {
+    const el = document.getElementById('loginError');
+    el.textContent    = msg;
+    el.style.display  = 'block';
+    // Подсветить поля
+    document.getElementById('loginEmail').style.borderColor = 'var(--red)';
+    document.getElementById('loginPass').style.borderColor  = 'var(--red)';
+    // Снять подсветку при вводе
+    ['loginEmail','loginPass'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        document.getElementById(id).style.borderColor = '';
+        el.style.display = 'none';
+      }, { once: true });
+    });
+  }
+
+  /* ══════════════════════════════════
+     РЕГИСТРАЦИЯ
+  ══════════════════════════════════ */
+  async function handleRegister() {
+    const firstName = document.getElementById('regFirstName').value.trim();
+    const lastName  = document.getElementById('regLastName').value.trim();
+    const username  = document.getElementById('regUsername').value.trim();
+    const email     = document.getElementById('regEmail').value.trim();
+    const phone     = document.getElementById('regPhone').value.trim();
+    const password  = document.getElementById('regPassword').value;
+    const password2 = document.getElementById('regPassword2').value;
+    const agreed    = document.getElementById('agreeTerms').checked;
+    const errEl     = document.getElementById('regError');
+    const btn       = document.getElementById('regBtn');
+
+    errEl.style.display = 'none';
+
+    // Клиентская валидация
+    if (!firstName || !lastName) { showRegError('Введи имя и фамилию'); return; }
+    if (!username)  { showRegError('Придумай игровой ник'); return; }
+    if (username.length < 3) { showRegError('Ник должен быть минимум 3 символа'); return; }
+    if (!email || !email.includes('@')) { showRegError('Введи корректный email'); return; }
+    if (password.length < 8) { showRegError('Пароль должен быть минимум 8 символов'); return; }
+    if (password !== password2) { showRegError('Пароли не совпадают'); return; }
+    if (!agreed) { showRegError('Необходимо принять условия использования'); return; }
+
+    setLoading(btn, true);
+    try {
+      await AuthAPI.register({
+        first_name: firstName,
+        last_name:  lastName,
+        username,
+        email,
+        phone,
+        password,
+        password2,
+      });
+
+      showToast('Аккаунт создан! Добро пожаловать в NEXUS 🎮', 'success');
+      setTimeout(() => { window.location.href = 'profile.html'; }, 800);
+
+    } catch (err) {
+      // Django REST Framework может вернуть ошибки по полям
+      if (err.data) {
+        const fieldMap = {
+          username:   'regUsername',
+          email:      'regEmail',
+          password:   'regPassword',
+          password2:  'regPassword2',
+          phone:      'regPhone',
+        };
+        let handled = false;
+        for (const [field, inputId] of Object.entries(fieldMap)) {
+          if (err.data[field]) {
+            const msg = Array.isArray(err.data[field]) ? err.data[field][0] : err.data[field];
+            showFieldError(inputId, msg);
+            handled = true;
+          }
+        }
+        if (!handled) showRegError(err.message);
+      } else {
+        showRegError(err.message || 'Ошибка регистрации. Попробуй ещё раз.');
+      }
+      setLoading(btn, false);
+    }
+  }
+
+  function showRegError(msg) {
+    const el = document.getElementById('regError');
+    el.textContent   = msg;
+    el.style.display = 'block';
+  }
+</script>
+</body>
+</html>

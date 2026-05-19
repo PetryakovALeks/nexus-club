@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS — Бронирование</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="api.js"></script>
+  <style>
+    .booking-layout { display: grid; grid-template-columns: 1fr 360px; gap: 28px; align-items: start; }
+
+    /* Steps indicator */
+    .steps { display: flex; align-items: center; gap: 0; margin-bottom: 36px; }
+    .step {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 600; color: var(--text-2);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      flex-shrink: 0; transition: all var(--transition);
+    }
+    .step.active { color: var(--text-0); }
+    .step.active .step-num { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 0 14px var(--accent-glow); }
+    .step.done .step-num { background: var(--green); border-color: var(--green); color: white; }
+    .step.done { color: var(--text-1); }
+    .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 12px; min-width: 24px; }
+    .step-line.done { background: var(--accent); }
+
+    /* Step panes */
+    .step-pane { display: none; }
+    .step-pane.active { display: block; }
+
+    /* PC selection mini grid */
+    .pc-mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .pc-mini {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px; cursor: pointer;
+      transition: all var(--transition); text-align: center;
+    }
+    .pc-mini:hover { border-color: var(--accent-border); }
+    .pc-mini.selected { border-color: var(--accent); background: rgba(124,58,237,0.1); box-shadow: 0 0 0 1px var(--accent); }
+    .pc-mini.busy { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .pc-mini-id { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+    .pc-mini-zone { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); }
+
+    /* Zone filter for booking */
+    .mini-zone-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+    .mini-zone-tab {
+      padding: 6px 14px; font-size: 12px; font-weight: 600;
+      border-radius: var(--r); border: 1px solid var(--border);
+      background: transparent; color: var(--text-2); cursor: pointer; transition: all var(--transition);
+    }
+    .mini-zone-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+    /* Date & time */
+    .date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+    .time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; margin-top: 8px; }
+    .time-slot {
+      padding: 9px 6px; text-align: center; font-size: 13px; font-weight: 600;
+      border-radius: var(--r); border: 1px solid var(--border);
+      background: var(--bg-elevated); cursor: pointer; transition: all var(--transition);
+      color: var(--text-1);
+    }
+    .time-slot:hover { border-color: var(--accent-border); color: var(--text-0); }
+    .time-slot.selected { background: rgba(124,58,237,0.15); border-color: var(--accent); color: var(--accent-neon); }
+    .time-slot.taken { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; pointer-events: none; }
+
+    /* Duration */
+    .duration-buttons { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .dur-btn {
+      padding: 9px 18px; font-size: 13px; font-weight: 600;
+      border-radius: var(--r); border: 1px solid var(--border);
+      background: var(--bg-elevated); cursor: pointer; transition: all var(--transition); color: var(--text-1);
+    }
+    .dur-btn:hover { border-color: var(--accent-border); color: var(--text-0); }
+    .dur-btn.selected { background: rgba(124,58,237,0.15); border-color: var(--accent); color: var(--accent-neon); }
+
+    /* Tariff cards */
+    .tariff-select-card {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 18px;
+      cursor: pointer; transition: all var(--transition); display: flex; gap: 16px; align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .tariff-select-card:hover { border-color: var(--accent-border); }
+    .tariff-select-card.selected { border-color: var(--accent); background: rgba(124,58,237,0.08); }
+    .tariff-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); margin-top: 2px; flex-shrink: 0; position: relative; transition: border-color var(--transition); }
+    .tariff-select-card.selected .tariff-radio { border-color: var(--accent); }
+    .tariff-select-card.selected .tariff-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
+    .tariff-info { flex: 1; }
+    .tariff-info-name { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+    .tariff-info-desc { font-size: 13px; color: var(--text-1); }
+    .tariff-info-price { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent-neon); margin-top: 8px; }
+    .tariff-info-price span { font-size: 12px; color: var(--text-2); }
+
+    /* Order summary */
+    .summary-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 24px; position: sticky; top: calc(var(--nav-h) + 24px);
+    }
+    .summary-title { font-size: 16px; margin-bottom: 20px; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-1); padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .summary-row:last-of-type { border-bottom: none; }
+    .summary-row-label { color: var(--text-2); }
+    .summary-row-val { font-weight: 500; color: var(--text-0); }
+    .summary-total { display: flex; justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--border); margin-top: 8px; }
+    .summary-total-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); }
+    .summary-total-val { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 800; color: var(--accent-neon); }
+    .balance-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: var(--r); padding: 12px 14px; margin: 16px 0; font-size: 13px;
+    }
+    .balance-row-label { color: var(--green); }
+    .balance-row-val { font-weight: 700; color: var(--green); }
+
+    /* Confirm step */
+    .confirm-list { list-style: none; }
+    .confirm-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .confirm-item:last-child { border-bottom: none; }
+    .confirm-icon { width: 40px; height: 40px; border-radius: var(--r); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--accent-neon); background: rgba(124,58,237,0.1); flex-shrink: 0; }
+    .confirm-label { font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+    .confirm-val { font-size: 15px; font-weight: 600; margin-top: 2px; }
+
+    .step-nav { display: flex; gap: 12px; justify-content: space-between; margin-top: 32px; }
+
+    @media (max-width: 900px) {
+      .booking-layout { grid-template-columns: 1fr; }
+      .summary-card { position: static; }
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo"><span class="nav-logo-icon">N</span>NEX<span>US</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Главная</a></li>
+      <li><a href="catalog.html">Каталог</a></li>
+      <li><a href="tariffs.html">Тарифы</a></li>
+      <li><a href="tournaments.html">Турниры</a></li>
+      <li><a href="news.html">Новости</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="profile.html" class="btn btn-ghost btn-sm"><i class='bx bx-user'></i> Профиль</a>
+      <button class="nav-burger" onclick="document.getElementById('navMobile').classList.toggle('open')"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="nav-mobile" id="navMobile">
+  <a href="index.html">Главная</a><a href="catalog.html">Каталог</a><a href="tariffs.html">Тарифы</a><a href="tournaments.html">Турниры</a>
+</div>
+
+<div class="page-wrapper">
+  <div class="page-hero">
+    <div class="container">
+      <div class="breadcrumb"><a href="index.html">Главная</a><span class="breadcrumb-sep">/</span><span>Бронирование</span></div>
+      <h1>Бронирование места</h1>
+      <p>4 простых шага — и ПК ждёт тебя</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top: 40px;">
+    <div class="container">
+
+      <!-- Steps indicator -->
+      <div class="steps" id="stepsRow">
+        <div class="step active" data-step="1"><div class="step-num">1</div><span>Место</span></div>
+        <div class="step-line" id="line12"></div>
+        <div class="step" data-step="2"><div class="step-num">2</div><span>Время</span></div>
+        <div class="step-line" id="line23"></div>
+        <div class="step" data-step="3"><div class="step-num">3</div><span>Тариф</span></div>
+        <div class="step-line" id="line34"></div>
+        <div class="step" data-step="4"><div class="step-num">4</div><span>Подтверждение</span></div>
+      </div>
+
+      <div class="booking-layout">
+        <div>
+
+          <!-- STEP 1: Choose PC -->
+          <div class="step-pane active" id="pane-1">
+            <div class="card card-top-line">
+              <div class="card-body">
+                <h2 style="font-size:18px;margin-bottom:6px">Выбери место</h2>
+                <p class="text-secondary" style="font-size:14px;margin-bottom:20px">Нажми на свободный ПК чтобы выбрать его</p>
+                <div class="mini-zone-tabs">
+                  <button class="mini-zone-tab active" onclick="filterMini('all',this)">Все</button>
+                  <button class="mini-zone-tab" onclick="filterMini('std',this)">Стандарт</button>
+                  <button class="mini-zone-tab" onclick="filterMini('vip',this)">VIP</button>
+                  <button class="mini-zone-tab" onclick="filterMini('cyb',this)">Кибер</button>
+                </div>
+                <div class="pc-mini-grid" id="miniGrid"></div>
+              </div>
+            </div>
+            <div class="step-nav">
+              <span></span>
+              <button class="btn btn-primary" onclick="nextStep(2)" id="nextBtn1" disabled>Далее <i class='bx bx-right-arrow-alt'></i></button>
+            </div>
+          </div>
+
+          <!-- STEP 2: Date & Time -->
+          <div class="step-pane" id="pane-2">
+            <div class="card card-top-line">
+              <div class="card-body">
+                <h2 style="font-size:18px;margin-bottom:20px">Выбери дату и время</h2>
+                <div class="date-grid">
+                  <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">Дата</label>
+                    <input type="date" class="form-input" id="bookDate" onchange="updateSummary()">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">Продолжительность</label>
+                    <select class="form-input" id="duration" onchange="updateSummary()">
+                      <option value="1">1 час</option>
+                      <option value="2" selected>2 часа</option>
+                      <option value="3">3 часа</option>
+                      <option value="4">4 часа</option>
+                      <option value="6">6 часов</option>
+                      <option value="8">8 часов</option>
+                      <option value="12">12 часов (ночная)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group mt-4">
+                  <label class="form-label">Время начала</label>
+                  <div class="time-grid" id="timeGrid"></div>
+                </div>
+              </div>
+            </div>
+            <div class="step-nav">
+              <button class="btn btn-ghost" onclick="goStep(1)"><i class='bx bx-left-arrow-alt'></i> Назад</button>
+              <button class="btn btn-primary" onclick="nextStep(3)" id="nextBtn2" disabled>Далее <i class='bx bx-right-arrow-alt'></i></button>
+            </div>
+          </div>
+
+          <!-- STEP 3: Tariff -->
+          <div class="step-pane" id="pane-3">
+            <div class="card card-top-line">
+              <div class="card-body">
+                <h2 style="font-size:18px;margin-bottom:20px">Выбери тариф</h2>
+
+                <div class="tariff-select-card selected" onclick="selectTariff(this, 'Стандарт', 80)" id="tariff-std">
+                  <div class="tariff-radio"></div>
+                  <div class="tariff-info">
+                    <div class="tariff-info-name">🎮 Стандарт</div>
+                    <div class="tariff-info-desc">Дневное время, стандартные условия</div>
+                    <div class="tariff-info-price">80 ₽<span> / час</span></div>
+                  </div>
+                </div>
+
+                <div class="tariff-select-card" onclick="selectTariff(this, 'Ночной', 50)" id="tariff-night">
+                  <div class="tariff-radio"></div>
+                  <div class="tariff-info">
+                    <div class="tariff-info-name">⚡ Ночной <span class="badge badge-warning" style="font-size:10px">23:00–09:00</span></div>
+                    <div class="tariff-info-desc">Скидка в ночные часы. Любая зона по наличию</div>
+                    <div class="tariff-info-price">50 ₽<span> / час</span></div>
+                  </div>
+                </div>
+
+                <div class="tariff-select-card" onclick="selectTariff(this, 'VIP', 180)" id="tariff-vip">
+                  <div class="tariff-radio"></div>
+                  <div class="tariff-info">
+                    <div class="tariff-info-name">👑 VIP <span class="badge badge-accent" style="font-size:10px">Топ железо</span></div>
+                    <div class="tariff-info-desc">VIP-зона, кабинка, Herman Miller кресло</div>
+                    <div class="tariff-info-price">180 ₽<span> / час</span></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+            <div class="step-nav">
+              <button class="btn btn-ghost" onclick="goStep(2)"><i class='bx bx-left-arrow-alt'></i> Назад</button>
+              <button class="btn btn-primary" onclick="nextStep(4)">Далее <i class='bx bx-right-arrow-alt'></i></button>
+            </div>
+          </div>
+
+          <!-- STEP 4: Confirm -->
+          <div class="step-pane" id="pane-4">
+            <div class="card card-top-line">
+              <div class="card-body">
+                <h2 style="font-size:18px;margin-bottom:6px">Проверь бронирование</h2>
+                <p class="text-secondary" style="font-size:14px;margin-bottom:24px">Убедись, что всё верно</p>
+                <ul class="confirm-list">
+                  <li class="confirm-item">
+                    <div class="confirm-icon"><i class='bx bx-desktop'></i></div>
+                    <div><div class="confirm-label">Место</div><div class="confirm-val" id="cfPC">—</div></div>
+                  </li>
+                  <li class="confirm-item">
+                    <div class="confirm-icon"><i class='bx bx-calendar'></i></div>
+                    <div><div class="confirm-label">Дата</div><div class="confirm-val" id="cfDate">—</div></div>
+                  </li>
+                  <li class="confirm-item">
+                    <div class="confirm-icon"><i class='bx bx-time'></i></div>
+                    <div><div class="confirm-label">Время</div><div class="confirm-val" id="cfTime">—</div></div>
+                  </li>
+                  <li class="confirm-item">
+                    <div class="confirm-icon"><i class='bx bxs-crown'></i></div>
+                    <div><div class="confirm-label">Тариф</div><div class="confirm-val" id="cfTariff">—</div></div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="step-nav">
+              <button class="btn btn-ghost" onclick="goStep(3)"><i class='bx bx-left-arrow-alt'></i> Назад</button>
+              <button class="btn btn-success btn-lg" onclick="confirmBooking()">
+                <i class='bx bx-check-circle'></i> Подтвердить и оплатить
+              </button>
+            </div>
+          </div>
+
+          <!-- SUCCESS -->
+          <div class="step-pane" id="pane-success">
+            <div style="text-align:center;padding:60px 20px">
+              <div style="font-size:72px;margin-bottom:20px">🎉</div>
+              <h2 style="font-size:28px;margin-bottom:10px">Место забронировано!</h2>
+              <p class="text-secondary" style="margin-bottom:6px">Бронирование #<strong class="text-accent" id="bookingId"></strong> успешно создано.</p>
+              <p class="text-secondary" style="margin-bottom:32px">Подробности отправлены на твой email.</p>
+              <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                <a href="profile.html" class="btn btn-primary btn-lg"><i class='bx bx-user'></i> Мои бронирования</a>
+                <a href="catalog.html" class="btn btn-ghost btn-lg">Посмотреть каталог</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Order Summary sidebar -->
+        <div class="summary-card">
+          <h3 class="summary-title">Итого</h3>
+          <div class="summary-row"><span class="summary-row-label">Место</span><span class="summary-row-val" id="sum-pc">Не выбрано</span></div>
+          <div class="summary-row"><span class="summary-row-label">Дата</span><span class="summary-row-val" id="sum-date">Не выбрано</span></div>
+          <div class="summary-row"><span class="summary-row-label">Время</span><span class="summary-row-val" id="sum-time">Не выбрано</span></div>
+          <div class="summary-row"><span class="summary-row-label">Тариф</span><span class="summary-row-val" id="sum-tariff">Стандарт</span></div>
+          <div class="summary-row"><span class="summary-row-label">Длительность</span><span class="summary-row-val" id="sum-dur">2 часа</span></div>
+          <div class="summary-row"><span class="summary-row-label">Цена/час</span><span class="summary-row-val" id="sum-rate">80 ₽</span></div>
+          <div class="balance-row">
+            <span class="balance-row-label"><i class='bx bxs-wallet'></i> Баланс</span>
+            <span class="balance-row-val">1 200 ₽</span>
+          </div>
+          <div class="summary-total">
+            <span class="summary-total-label">К оплате</span>
+            <span class="summary-total-val" id="sum-total">160 ₽</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+
+  /* ── Защита маршрута ── */
+  requireAuth();
+
+  /* ════════════════════════════════════
+     ПЕРЕМЕННЫЕ — объявляем в самом верху
+  ════════════════════════════════════ */
+  let allPCs     = [];
+  let allTariffs = [];
+
+  let state = {
+    pc: null, pcObj: null,
+    date: null, time: null,
+    duration: 2,
+    tariff: null, tariffObj: null,
+    step: 1
+  };
+
+  /* ════════════════════════════════════
+     ЗАГРУЗКА ДАННЫХ С API
+  ════════════════════════════════════ */
+  async function initBooking() {
+    try {
+      [allPCs, allTariffs] = await Promise.all([
+        PCsAPI.getAll({ status: 'free' }),
+        TariffsAPI.getAll(),
+      ]);
+
+      renderMiniGrid('all');
+      renderTariffs();
+
+      // Если пришли с каталога с ?pc=ID — предвыбираем ПК
+      const params = new URLSearchParams(window.location.search);
+      const preselectedId = params.get('pc');
+      if (preselectedId) selectPC(Number(preselectedId));
+
+    } catch (err) {
+      showToast('Ошибка загрузки данных: ' + err.message, 'error');
+    }
+  }
+
+  /* ════════════════════════════════════
+     ШАГ 1 — выбор ПК
+  ════════════════════════════════════ */
+  const zoneLabel = { standard:'Стандарт', vip:'VIP', cyber:'Кибер' };
+
+  function renderMiniGrid(zoneFilter) {
+    const filtered = zoneFilter === 'all'
+      ? allPCs
+      : allPCs.filter(pc => pc.zone_type === zoneFilter);
+
+    document.getElementById('miniGrid').innerHTML = filtered.map(pc => `
+      <div class="pc-mini ${pc.status !== 'free' ? 'busy' : ''} ${state.pc === pc.id ? 'selected' : ''}"
+           onclick="selectPC(${pc.id})">
+        <div class="pc-mini-id">${pc.label}</div>
+        <div class="pc-mini-zone">${zoneLabel[pc.zone_type] || pc.zone_name}</div>
+        <div style="margin-top:6px">
+          <span class="status-dot ${pc.status === 'free' ? 'dot-green' : 'dot-red'}"></span>
+        </div>
+      </div>`).join('') || '<p class="text-muted" style="padding:20px 0">Нет свободных мест</p>';
+  }
+
+  // filterMini вызывается из onclick в HTML — делаем глобальной
+  window.filterMini = function(zone, btn) {
+    document.querySelectorAll('.mini-zone-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderMiniGrid(zone === 'all' ? 'all' : zone);
+  };
+
+  window.selectPC = function(id) {
+    const pc = allPCs.find(p => p.id === id);
+    if (!pc || pc.status !== 'free') return;
+    state.pc    = id;
+    state.pcObj = pc;
+    document.querySelectorAll('.pc-mini').forEach(el => {
+      const label = el.querySelector('.pc-mini-id')?.textContent;
+      el.classList.toggle('selected', label === pc.label);
+    });
+    document.getElementById('nextBtn1').disabled = false;
+    updateSummary();
+  };
+
+  /* ════════════════════════════════════
+     ШАГ 2 — дата и время
+  ════════════════════════════════════ */
+  const taken = ['10:00','11:00','14:00','15:00','21:00'];
+
+  function renderTimeSlots() {
+    const slots = [];
+    for (let h = 8; h <= 23; h++) slots.push(`${String(h).padStart(2,'0')}:00`);
+    document.getElementById('timeGrid').innerHTML = slots.map(t => `
+      <div class="time-slot ${taken.includes(t) ? 'taken' : ''} ${state.time === t ? 'selected' : ''}"
+           onclick="selectTime('${t}')">${t}</div>`).join('');
+  }
+
+  window.selectTime = function(t) {
+    if (taken.includes(t)) return;
+    state.time = t;
+    document.querySelectorAll('.time-slot').forEach(el =>
+      el.classList.toggle('selected', el.textContent.trim() === t));
+    document.getElementById('nextBtn2').disabled = false;
+    updateSummary();
+  };
+
+  /* ════════════════════════════════════
+     ШАГ 3 — тарифы
+  ════════════════════════════════════ */
+  function renderTariffs() {
+    const container = document.querySelector('#pane-3 .card-body');
+    // Убираем старые захардкоженные карточки
+    container.querySelectorAll('.tariff-select-card').forEach(el => el.remove());
+
+    container.insertAdjacentHTML('beforeend', allTariffs.map((t, i) => `
+      <div class="tariff-select-card ${i === 0 ? 'selected' : ''}"
+           onclick="selectTariff(this, ${t.id})"
+           id="tariff-card-${t.id}">
+        <div class="tariff-radio"></div>
+        <div class="tariff-info">
+          <div class="tariff-info-name">${t.name}</div>
+          <div class="tariff-info-desc">${t.description || ''}</div>
+          <div class="tariff-info-price">${t.price_per_hour} ₽<span> / час</span></div>
+        </div>
+      </div>`).join(''));
+
+    // Предвыбираем первый тариф
+    if (allTariffs.length) {
+      state.tariff    = allTariffs[0].id;
+      state.tariffObj = allTariffs[0];
+      updateSummary();
+    }
+  }
+
+  window.selectTariff = function(el, id) {
+    document.querySelectorAll('.tariff-select-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.tariff    = id;
+    state.tariffObj = allTariffs.find(t => t.id === id);
+    updateSummary();
+  };
+
+  /* ════════════════════════════════════
+     НАВИГАЦИЯ ПО ШАГАМ
+  ════════════════════════════════════ */
+  window.goStep = function(n) {
+    document.querySelectorAll('.step-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('pane-' + n).classList.add('active');
+    state.step = n;
+    document.querySelectorAll('.step[data-step]').forEach(s => {
+      const sn = parseInt(s.dataset.step);
+      s.classList.toggle('active', sn === n);
+      s.classList.toggle('done',   sn < n);
+    });
+    document.querySelectorAll('.step-line').forEach((l, i) =>
+      l.classList.toggle('done', i < n - 1));
+    if (n === 2) renderTimeSlots();
+    if (n === 4) fillConfirm();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  window.nextStep = window.goStep;
+
+  /* ════════════════════════════════════
+     ИТОГ И ПОДТВЕРЖДЕНИЕ
+  ════════════════════════════════════ */
+  window.updateSummary = function() {
+    const dur  = parseInt(document.getElementById('duration')?.value || 2);
+    state.duration = dur;
+    const dateVal = document.getElementById('bookDate')?.value;
+    if (dateVal) state.date = new Date(dateVal).toLocaleDateString('ru-RU');
+    const rate  = parseFloat(state.tariffObj?.price_per_hour || 0);
+    const total = (rate * dur).toFixed(0);
+    document.getElementById('sum-pc').textContent     = state.pcObj?.label || 'Не выбрано';
+    document.getElementById('sum-date').textContent   = state.date || 'Не выбрано';
+    document.getElementById('sum-time').textContent   = state.time ? `${state.time} (${dur}ч)` : 'Не выбрано';
+    document.getElementById('sum-tariff').textContent = state.tariffObj?.name || '—';
+    document.getElementById('sum-dur').textContent    = dur + ' ч';
+    document.getElementById('sum-rate').textContent   = rate + ' ₽';
+    document.getElementById('sum-total').textContent  = total + ' ₽';
+  };
+
+  function fillConfirm() {
+    document.getElementById('cfPC').textContent     = state.pcObj?.label || '—';
+    document.getElementById('cfDate').textContent   = state.date || '—';
+    document.getElementById('cfTime').textContent   = state.time
+      ? `${state.time} – ${endTime(state.time, state.duration)}` : '—';
+    document.getElementById('cfTariff').textContent =
+      `${state.tariffObj?.name || '—'} · ${(parseFloat(state.tariffObj?.price_per_hour || 0) * state.duration).toFixed(0)} ₽`;
+  }
+
+  function endTime(start, dur) {
+    const [h] = start.split(':').map(Number);
+    const end = h + dur;
+    return `${String(end > 23 ? end - 24 : end).padStart(2,'0')}:00`;
+  }
+
+  /* ════════════════════════════════════
+     ОТПРАВКА В API
+  ════════════════════════════════════ */
+  window.confirmBooking = async function() {
+    const btn = document.querySelector('#pane-4 .btn-success');
+    setLoading(btn, true);
+    try {
+      const dateStr = document.getElementById('bookDate').value;
+      const [h]     = state.time.split(':').map(Number);
+      const endH    = h + state.duration;
+      const startISO = `${dateStr}T${String(h).padStart(2,'0')}:00:00`;
+      const endISO   = `${dateStr}T${String(endH > 23 ? endH-24 : endH).padStart(2,'0')}:00:00`;
+
+      await BookingsAPI.create({
+        pc:         state.pc,
+        tariff:     state.tariff,
+        start_time: startISO,
+        end_time:   endISO,
+      });
+
+      document.querySelectorAll('.step-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById('pane-success').classList.add('active');
+      document.getElementById('bookingId').textContent =
+        'BK-' + Math.floor(10000 + Math.random() * 90000);
+      showToast('Место забронировано! 🎮', 'success');
+
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+      setLoading(btn, false);
+    }
+  };
+
+  /* ── Инициализация ── */
+  document.getElementById('bookDate').value = new Date().toISOString().split('T')[0];
+  state.date = new Date().toLocaleDateString('ru-RU');
+  updateSummary();
+  await initBooking();
+
+}); // конец DOMContentLoaded
+</script>
+</body>
+</html>
