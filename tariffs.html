@@ -361,22 +361,141 @@
 </footer>
 
 <script>
-  let isPackage = false;
-  function toggleBilling() {
+document.addEventListener('DOMContentLoaded', async () => {
+
+  let allTariffs = [];
+  let isPackage  = false;
+
+  /* ════════════════════════════════════
+     ЗАГРУЗКА ТАРИФОВ
+  ════════════════════════════════════ */
+  async function loadTariffs() {
+    try {
+      allTariffs = await TariffsAPI.getAll();
+      renderTariffs();
+    } catch (err) {
+      showToast('Не удалось загрузить тарифы: ' + err.message, 'error');
+    }
+  }
+
+  /* ════════════════════════════════════
+     РЕНДЕР КАРТОЧЕК
+  ════════════════════════════════════ */
+
+  // Иконки и стили для каждого тарифа по имени
+  function getTariffStyle(name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('vip'))     return { icon: '👑', popular: false };
+    if (n.includes('ноч'))     return { icon: '⚡', popular: true  };
+    return                            { icon: '🎮', popular: false };
+  }
+
+  // Скидка 20% для пакетного режима
+  function getPackagePrice(price) {
+    return (parseFloat(price) * 0.8).toFixed(0);
+  }
+
+  function renderTariffs() {
+    const container = document.querySelector('.tariff-grid');
+    if (!container || !allTariffs.length) return;
+
+    container.innerHTML = allTariffs.map(t => {
+      const { icon, popular } = getTariffStyle(t.name);
+      const basePrice  = parseFloat(t.price_per_hour);
+      const pkgPrice   = getPackagePrice(basePrice);
+
+      return `
+        <div class="tc ${popular ? 'highlighted' : ''}">
+          ${popular ? `
+            <div class="tc-glow"></div>
+            <div class="tc-popular-badge">Популярный</div>` : ''}
+          <div class="tc-icon">${icon}</div>
+          <h3 class="tc-name">${t.name}</h3>
+          <p class="tc-desc">${t.description || ''}</p>
+          <div class="tc-price-block">
+            <div class="tc-price-main">
+              <span class="cur">₽</span>
+              <span class="price-val" data-base="${basePrice}" data-pkg="${pkgPrice}">
+                ${basePrice.toFixed(0)}
+              </span>
+              <span class="per">/час</span>
+            </div>
+            <div class="tc-price-old" style="display:none">
+              ${basePrice.toFixed(0)} ₽/час
+            </div>
+            <div class="tc-save" style="display:none">
+              Пакет 10ч — экономишь ${(basePrice * 10 * 0.2).toFixed(0)} ₽
+            </div>
+          </div>
+          <ul class="tc-features">
+            ${getTariffFeatures(t.name)}
+          </ul>
+          <a href="booking.html" class="btn ${popular ? 'btn-primary' : 'btn-outline'} btn-block">
+            Выбрать
+          </a>
+        </div>`;
+    }).join('');
+  }
+
+  // Фичи по названию тарифа
+  function getTariffFeatures(name) {
+    const n = (name || '').toLowerCase();
+
+    if (n.includes('vip')) return `
+      <li><i class='bx bx-check'></i> VIP-зона с кабинками</li>
+      <li><i class='bx bx-check'></i> RTX 4090, 64 ГБ RAM</li>
+      <li><i class='bx bx-check'></i> 240 Гц 4K монитор</li>
+      <li><i class='bx bx-check'></i> Herman Miller Aeron</li>
+      <li><i class='bx bx-check'></i> Напиток в подарок</li>
+      <li><i class='bx bx-check'></i> Выделенный интернет</li>`;
+
+    if (n.includes('ноч')) return `
+      <li><i class='bx bx-check'></i> Любая зона по наличию</li>
+      <li><i class='bx bx-check'></i> Напитки со скидкой 20%</li>
+      <li><i class='bx bx-check'></i> Все установленные игры</li>
+      <li><i class='bx bx-check'></i> Только 23:00 – 09:00</li>
+      <li><i class='bx bx-x no'></i> <span style="color:var(--text-2)">Нельзя выбрать конкретный ПК</span></li>`;
+
+    return `
+      <li><i class='bx bx-check'></i> Стандартная зона</li>
+      <li><i class='bx bx-check'></i> RTX 3070–3080, 16–32 ГБ</li>
+      <li><i class='bx bx-check'></i> 144 Гц мониторы</li>
+      <li><i class='bx bx-check'></i> Гарнитура в комплекте</li>
+      <li><i class='bx bx-check'></i> Все установленные игры</li>
+      <li><i class='bx bx-check'></i> Интернет 1 Гбит/с</li>`;
+  }
+
+  /* ════════════════════════════════════
+     ПЕРЕКЛЮЧАТЕЛЬ ПОЧАСОВО / ПАКЕТ
+  ════════════════════════════════════ */
+  window.toggleBilling = function() {
     isPackage = !isPackage;
     document.getElementById('billingToggle').classList.toggle('on', isPackage);
     document.getElementById('lbl-hour').classList.toggle('active', !isPackage);
     document.getElementById('lbl-package').classList.toggle('active', isPackage);
-    const prices = { std: [80, 64], night: [50, 40], vip: [180, 144] };
-    for (const [k, [hourly, pkg]] of Object.entries(prices)) {
-      document.getElementById('pr-' + k).textContent = isPackage ? pkg : hourly;
-      document.getElementById('pr-' + k + '-old').style.display = isPackage ? '' : 'none';
-      document.getElementById('pr-' + k + '-save').style.display = isPackage ? '' : 'none';
-    }
-  }
-  function toggleFaq(el) {
+
+    document.querySelectorAll('.price-val').forEach(el => {
+      el.textContent = isPackage ? el.dataset.pkg : el.dataset.base;
+    });
+    document.querySelectorAll('.tc-price-old').forEach(el => {
+      el.style.display = isPackage ? '' : 'none';
+    });
+    document.querySelectorAll('.tc-save').forEach(el => {
+      el.style.display = isPackage ? '' : 'none';
+    });
+  };
+
+  /* ════════════════════════════════════
+     FAQ
+  ════════════════════════════════════ */
+  window.toggleFaq = function(el) {
     el.parentElement.classList.toggle('open');
-  }
+  };
+
+  /* ── Запуск ── */
+  await loadTariffs();
+
+});
 </script>
 </body>
 </html>
