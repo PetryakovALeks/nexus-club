@@ -374,7 +374,7 @@
       <div class="admin-page" id="page-tournaments">
         <div class="admin-header">
           <h2 class="admin-title">Управление турнирами</h2>
-          <button class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Создать турнир</button>
+          <button onclick="openCreateTournamentModal()" class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Создать турнир</button>
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="table">
@@ -392,7 +392,7 @@
       <div class="admin-page" id="page-news">
         <div class="admin-header">
           <h2 class="admin-title">Управление новостями</h2>
-          <button class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Добавить новость</button>
+          <button onclick="openCreateNewsModal()" class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Добавить новость</button>
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="table">
@@ -412,121 +412,217 @@
 </div>
 
 <script>
-  /* ── Защита маршрута — только для admin ── */
+document.addEventListener('DOMContentLoaded', async () => {
+
   requireAuth('admin');
 
-  function showPage(id, el) {
-    document.querySelectorAll('.admin-nav-item').forEach(i=>i.classList.remove('active'));
+  /* ════════════════════════════════════
+     НАВИГАЦИЯ
+  ════════════════════════════════════ */
+  window.showPage = function(id, el) {
+    document.querySelectorAll('.admin-nav-item').forEach(i => i.classList.remove('active'));
     if (el) el.classList.add('active');
-    document.querySelectorAll('.admin-page').forEach(p=>p.classList.remove('active'));
-    document.getElementById('page-'+id).classList.add('active');
+    document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
 
-    // Загружаем реальные данные при переходе на раздел
-    if (id === 'dashboard')   loadDashboard();
-    if (id === 'pcs')         loadPCsPage();
-    if (id === 'bookings')    loadAdminBookings();
-    if (id === 'users')       loadUsers();
-    if (id === 'tournaments') loadAdminTournaments();
-    if (id === 'news')        loadAdminNews();
-  }
+    const loaders = {
+      dashboard:   loadDashboard,
+      pcs:         loadPCsPage,
+      bookings:    loadAdminBookings,
+      users:       loadUsers,
+      tournaments: loadAdminTournaments,
+      news:        loadAdminNews,
+    };
+    if (loaders[id]) loaders[id]();
+  };
 
-  /* ══════════════════════════════════
+  /* ════════════════════════════════════
      ДАШБОРД
-  ══════════════════════════════════ */
+  ════════════════════════════════════ */
   async function loadDashboard() {
     try {
-      // Загружаем ПК для статистики и последние бронирования
       const [pcs, bookings] = await Promise.all([
         PCsAPI.getAll(),
-        BookingsAPI.getAll({ limit: 5, ordering: '-created_at' }),
+        BookingsAPI.getAll({ ordering: '-created_at' }),
       ]);
 
-      // KPI — занятые ПК
-      const busyCount = pcs.filter(p => p.status === 'busy').length;
-      document.querySelector('.kpi-val').textContent = busyCount;
+      // KPI
+      const busy      = pcs.filter(p => p.status === 'busy').length;
+      const reserved  = pcs.filter(p => p.status === 'reserved').length;
+      const free      = pcs.filter(p => p.status === 'free').length;
+      const activeB   = bookings.filter(b => b.status === 'active').length;
+      const todayRev  = bookings
+        .filter(b => b.status !== 'cancelled' &&
+          new Date(b.created_at).toDateString() === new Date().toDateString())
+        .reduce((s, b) => s + parseFloat(b.total_price || 0), 0);
 
-    } catch (err) {
-      // Сервер ещё не готов — оставляем статичные данные
-      console.warn('API недоступен, используются демо-данные:', err.message);
-    }
-  }
+      const kpis = document.querySelectorAll('.kpi-val');
+      if (kpis[0]) kpis[0].textContent = busy + reserved;
+      if (kpis[1]) kpis[1].textContent = todayRev.toLocaleString('ru-RU');
+      if (kpis[2]) kpis[2].textContent = new Set(bookings.map(b => b.user)).size;
+      if (kpis[3]) kpis[3].textContent = activeB;
 
-  /* ══════════════════════════════════
-     СТРАНИЦА ПК — карта статусов
-  ══════════════════════════════════ */
-  async function loadPCsPage() {
-    try {
-      const pcs = await PCsAPI.getAll();
-
+      // Загрузка зон
       const zones = { standard: [], vip: [], cyber: [] };
-      pcs.forEach(pc => {
-        if (zones[pc.zone]) zones[pc.zone].push(pc);
-      });
+      pcs.forEach(pc => { if (zones[pc.zone_type]) zones[pc.zone_type].push(pc); });
+      updateZoneBars(zones);
 
-      const statusMap = { free: 'free', busy: 'busy', reserved: 'reserved', offline: 'offline' };
-      const gridMap   = { standard: 'pcGrid', vip: 'pcGridVip', cyber: 'pcGridCyb' };
+      // Последние бронирования
+      renderRecentBookings(bookings.slice(0, 5));
 
-      Object.entries(zones).forEach(([zone, list]) => {
-        if (!list.length) return;
-        document.getElementById(gridMap[zone]).innerHTML = list.map(pc => `
-          <div class="pc-status-cell ${statusMap[pc.status] || 'offline'}"
-               title="${pc.label} · ${pc.status}"
-               onclick="adminPCDetail(${pc.id})">
-            <div class="pc-dot"></div>
-            <div>${pc.number || pc.id}</div>
-          </div>`).join('');
-      });
+      // Карта ПК
+      renderPcGridFromAPI(pcs);
 
     } catch (err) {
-      // Fallback — отрисовываем демо-данные
+      console.warn('Дашборд: используются демо-данные.', err.message);
       renderPcGrid('pcGrid',    stdStatus, 'STD');
       renderPcGrid('pcGridVip', vipStatus, 'VIP');
       renderPcGrid('pcGridCyb', cybStatus, 'CYB');
     }
   }
 
-  function adminPCDetail(id) {
-    showToast(`ПК #${id} — редактирование (в разработке)`, 'info');
+  function updateZoneBars(zones) {
+    const bars = document.querySelectorAll('.admin-page#page-dashboard [style*="width:"]');
+    const data = [
+      { zone: 'standard', total: 32 },
+      { zone: 'vip',      total: 12 },
+      { zone: 'cyber',    total: 12 },
+    ];
+    data.forEach(({ zone, total }, i) => {
+      const busy = (zones[zone] || []).filter(p =>
+        p.status === 'busy' || p.status === 'reserved').length;
+      if (bars[i]) bars[i].style.width = Math.round((busy / total) * 100) + '%';
+    });
   }
 
-  /* ══════════════════════════════════
-     УПРАВЛЕНИЕ БРОНИРОВАНИЯМИ
-  ══════════════════════════════════ */
+  function renderRecentBookings(bookings) {
+    const tbody = document.querySelector('#page-dashboard table tbody');
+    if (!tbody) return;
+    const statusCfg = {
+      active:    'badge-success',
+      completed: 'badge-info',
+      cancelled: 'badge-danger',
+    };
+    const statusLabel = { active:'Активно', completed:'Завершено', cancelled:'Отменено' };
+    tbody.innerHTML = bookings.map(b => `
+      <tr>
+        <td class="font-orbitron text-sm" style="color:var(--text-0)">#${b.id}</td>
+        <td>${b.user_username || '—'}</td>
+        <td>${b.pc_label || b.pc}</td>
+        <td>${formatAdminTime(b.start_time)} – ${formatAdminTime(b.end_time)}</td>
+        <td class="font-orbitron text-sm" style="color:var(--accent-neon)">
+          ${Number(b.total_price).toLocaleString('ru-RU')} ₽
+        </td>
+        <td><span class="badge ${statusCfg[b.status] || 'badge-info'}">
+          ${statusLabel[b.status] || b.status}
+        </span></td>
+      </tr>`).join('');
+  }
+
+  /* ════════════════════════════════════
+     КАРТА ПК
+  ════════════════════════════════════ */
+  function renderPcGridFromAPI(pcs) {
+    const groups = { standard: [], vip: [], cyber: [] };
+    pcs.forEach(pc => { if (groups[pc.zone_type]) groups[pc.zone_type].push(pc); });
+
+    const gridMap = { standard:'pcGrid', vip:'pcGridVip', cyber:'pcGridCyb' };
+    Object.entries(groups).forEach(([zone, list]) => {
+      const el = document.getElementById(gridMap[zone]);
+      if (!el || !list.length) return;
+      el.innerHTML = list.map(pc => `
+        <div class="pc-status-cell ${pc.status}"
+             title="${pc.label} · ${pc.status}"
+             onclick="openPCModal(${pc.id}, '${pc.label}', '${pc.status}')">
+          <div class="pc-dot"></div>
+          <div>${pc.number || pc.id}</div>
+        </div>`).join('');
+    });
+  }
+
+  async function loadPCsPage() {
+    try {
+      const pcs = await PCsAPI.getAll();
+      renderPcGridFromAPI(pcs);
+    } catch {
+      renderPcGrid('pcGrid',    stdStatus, 'STD');
+      renderPcGrid('pcGridVip', vipStatus, 'VIP');
+      renderPcGrid('pcGridCyb', cybStatus, 'CYB');
+    }
+  }
+
+  /* ─── Модал управления ПК ─── */
+  window.openPCModal = function(id, label, currentStatus) {
+    showModal('Управление ПК — ' + label, `
+      <div class="form-group">
+        <label class="form-label">Текущий статус</label>
+        <select id="pcStatusSelect" class="form-input">
+          <option value="free"     ${currentStatus==='free'     ?'selected':''}>Свободен</option>
+          <option value="busy"     ${currentStatus==='busy'     ?'selected':''}>Занят</option>
+          <option value="reserved" ${currentStatus==='reserved' ?'selected':''}>Забронирован</option>
+          <option value="offline"  ${currentStatus==='offline'  ?'selected':''}>Выключен</option>
+        </select>
+      </div>`,
+      async () => {
+        const newStatus = document.getElementById('pcStatusSelect').value;
+        await PCsAPI.update(id, { status: newStatus });
+        showToast(`${label} → ${newStatus}`, 'success');
+        loadPCsPage();
+        closeModal();
+      }
+    );
+  };
+
+  /* ════════════════════════════════════
+     БРОНИРОВАНИЯ
+  ════════════════════════════════════ */
   async function loadAdminBookings() {
     try {
       const bookings = await BookingsAPI.getAll({ ordering: '-created_at' });
       const tbody = document.querySelector('#page-bookings table tbody');
-      if (!tbody || !bookings.length) return;
+      if (!tbody) return;
 
-      const statusCfg = {
-        active:    'badge-success',
-        completed: 'badge-info',
-        cancelled: 'badge-danger',
-      };
-      const statusLabel = { active: 'Активно', completed: 'Завершено', cancelled: 'Отменено' };
+      const statusCfg   = { active:'badge-success', completed:'badge-info', cancelled:'badge-danger' };
+      const statusLabel = { active:'Активно', completed:'Завершено', cancelled:'Отменено' };
 
       tbody.innerHTML = bookings.map(b => `
         <tr>
           <td class="font-orbitron text-sm" style="color:var(--text-0)">#${b.id}</td>
-          <td><div class="user-row">
-            <div class="user-avatar-sm" style="font-size:12px">${(b.user_username||'?')[0].toUpperCase()}</div>
-            <div class="user-name-block">
-              <div class="user-name-val">${b.user_full_name || b.user_username}</div>
-              <div class="user-nick">@${b.user_username}</div>
+          <td>
+            <div class="user-row">
+              <div class="user-avatar-sm" style="font-size:12px">
+                ${(b.user_username||'?')[0].toUpperCase()}
+              </div>
+              <div class="user-name-block">
+                <div class="user-name-val">${b.user_full_name || b.user_username}</div>
+                <div class="user-nick">@${b.user_username}</div>
+              </div>
             </div>
-          </div></td>
-          <td><span class="badge badge-accent">${b.pc_label}</span></td>
-          <td class="text-sm">${formatDate(b.start_time)} · ${formatTimeShort(b.start_time)}–${formatTimeShort(b.end_time)}</td>
-          <td class="text-sm">${b.tariff_name} · ${durationHours(b.start_time, b.end_time)}ч</td>
-          <td class="font-orbitron text-sm" style="color:var(--accent-neon)">${formatMoney(b.total_price)}</td>
-          <td><span class="badge ${statusCfg[b.status] || 'badge-info'}">${statusLabel[b.status] || b.status}</span></td>
-          <td><div class="flex gap-2">
-            ${b.status === 'active'
-              ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="editBooking(${b.id})"><i class='bx bx-pencil'></i></button>
-                 <button class="btn btn-danger btn-sm btn-icon" onclick="adminCancelBooking(${b.id})"><i class='bx bx-x'></i></button>`
-              : `<button class="btn btn-ghost btn-sm btn-icon"><i class='bx bx-show'></i></button>`
-            }
-          </div></td>
+          </td>
+          <td><span class="badge badge-accent">${b.pc_label || b.pc}</span></td>
+          <td class="text-sm">
+            ${formatAdminDate(b.start_time)} · ${formatAdminTime(b.start_time)}–${formatAdminTime(b.end_time)}
+          </td>
+          <td class="text-sm">${b.tariff_name || '—'}</td>
+          <td class="font-orbitron text-sm" style="color:var(--accent-neon)">
+            ${Number(b.total_price).toLocaleString('ru-RU')} ₽
+          </td>
+          <td><span class="badge ${statusCfg[b.status]||'badge-info'}">
+            ${statusLabel[b.status]||b.status}
+          </span></td>
+          <td>
+            <div class="flex gap-2">
+              ${b.status === 'active' ? `
+                <button class="btn btn-danger btn-sm btn-icon"
+                        onclick="adminCancelBooking(${b.id})"
+                        title="Отменить">
+                  <i class='bx bx-x'></i>
+                </button>` : `
+                <button class="btn btn-ghost btn-sm btn-icon" title="Просмотр">
+                  <i class='bx bx-show'></i>
+                </button>`}
+            </div>
+          </td>
         </tr>`).join('');
 
     } catch (err) {
@@ -534,7 +630,7 @@
     }
   }
 
-  async function adminCancelBooking(id) {
+  window.adminCancelBooking = async function(id) {
     if (!confirm(`Отменить бронирование #${id}?`)) return;
     try {
       await BookingsAPI.cancel(id);
@@ -543,36 +639,54 @@
     } catch (err) {
       showToast('Ошибка: ' + err.message, 'error');
     }
-  }
-  function editBooking(id) { showToast(`Редактирование брони #${id} (в разработке)`, 'info'); }
+  };
 
-  /* ══════════════════════════════════
+  /* ════════════════════════════════════
      ПОЛЬЗОВАТЕЛИ
-  ══════════════════════════════════ */
+  ════════════════════════════════════ */
   async function loadUsers() {
     try {
       const users = await API.get('/users/');
       const tbody = document.querySelector('#page-users table tbody');
-      if (!tbody || !users.length) return;
+      if (!tbody) return;
 
       tbody.innerHTML = users.map(u => `
         <tr>
-          <td><div class="user-row">
-            <div class="user-avatar-sm" style="font-size:12px">${(u.username||'?')[0].toUpperCase()}</div>
-            <div class="user-name-block">
-              <div class="user-name-val">${u.first_name} ${u.last_name}</div>
-              <div class="user-nick">@${u.username}</div>
+          <td>
+            <div class="user-row">
+              <div class="user-avatar-sm" style="font-size:12px">
+                ${(u.username||'?')[0].toUpperCase()}
+              </div>
+              <div class="user-name-block">
+                <div class="user-name-val">${u.first_name} ${u.last_name}</div>
+                <div class="user-nick">@${u.username}</div>
+              </div>
             </div>
-          </div></td>
+          </td>
           <td class="text-sm text-secondary">${u.email}</td>
-          <td><span class="badge ${u.role==='admin'?'badge-warning':'badge-accent'}">${u.role==='admin'?'Администратор':'Игрок'}</span></td>
-          <td class="font-orbitron text-sm" style="color:var(--green)">${formatMoney(u.balance)}</td>
+          <td><span class="badge ${u.role==='admin'?'badge-warning':'badge-accent'}">
+            ${u.role==='admin'?'Администратор':'Игрок'}
+          </span></td>
+          <td class="font-orbitron text-sm" style="color:var(--green)">
+            ${Number(u.balance).toLocaleString('ru-RU')} ₽
+          </td>
           <td class="text-sm">${u.bookings_count ?? '—'}</td>
-          <td class="text-sm text-muted">${formatDate(u.date_joined)}</td>
-          <td><div class="flex gap-2">
-            <button class="btn btn-ghost btn-sm btn-icon" onclick="editUser(${u.id})"><i class='bx bx-pencil'></i></button>
-            ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm btn-icon" onclick="blockUser(${u.id})"><i class='bx bx-block'></i></button>` : ''}
-          </div></td>
+          <td class="text-sm text-muted">${formatAdminDate(u.date_joined)}</td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm btn-icon"
+                      onclick="openEditUserModal(${u.id}, '${u.username}', ${u.balance})"
+                      title="Редактировать">
+                <i class='bx bx-pencil'></i>
+              </button>
+              ${u.role !== 'admin' ? `
+                <button class="btn btn-danger btn-sm btn-icon"
+                        onclick="blockUser(${u.id})"
+                        title="Заблокировать">
+                  <i class='bx bx-block'></i>
+                </button>` : ''}
+            </div>
+          </td>
         </tr>`).join('');
 
     } catch (err) {
@@ -580,71 +694,419 @@
     }
   }
 
-  function editUser(id)  { showToast(`Редактирование пользователя #${id} (в разработке)`, 'info'); }
-  function blockUser(id) {
-    if (!confirm(`Заблокировать пользователя #${id}?`)) return;
-    API.patch(`/users/${id}/`, { is_active: false })
-      .then(() => { showToast('Пользователь заблокирован', 'success'); loadUsers(); })
-      .catch(err => showToast('Ошибка: ' + err.message, 'error'));
-  }
+  window.openEditUserModal = function(id, username, balance) {
+    showModal('Редактировать пользователя @' + username, `
+      <div class="form-group">
+        <label class="form-label">Пополнить баланс (₽)</label>
+        <input id="editUserBalance" type="number" class="form-input"
+               placeholder="Введи сумму" min="0">
+        <div class="form-hint">Текущий баланс: ${Number(balance).toLocaleString('ru-RU')} ₽</div>
+      </div>`,
+      async () => {
+        const amount = parseFloat(document.getElementById('editUserBalance').value);
+        if (!amount || amount <= 0) {
+          showToast('Введи корректную сумму', 'warning'); return;
+        }
+        await API.post(`/users/${id}/topup/`, { amount });
+        showToast('Баланс пополнен на ' + amount + ' ₽', 'success');
+        loadUsers();
+        closeModal();
+      }
+    );
+  };
 
-  /* ══════════════════════════════════
-     ТУРНИРЫ И НОВОСТИ (admin)
-  ══════════════════════════════════ */
+  window.blockUser = async function(id) {
+    if (!confirm('Заблокировать пользователя?')) return;
+    try {
+      await API.patch(`/users/${id}/`, { is_active: false });
+      showToast('Пользователь заблокирован', 'success');
+      loadUsers();
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    }
+  };
+
+  /* ════════════════════════════════════
+     ТУРНИРЫ
+  ════════════════════════════════════ */
   async function loadAdminTournaments() {
     try {
-      await TournamentsAPI.getAll(); // данные используются для будущего рендера
-    } catch { /* fallback — статичные данные остаются */ }
+      const list = await TournamentsAPI.getAll();
+      const tbody = document.querySelector('#page-tournaments table tbody');
+      if (!tbody) return;
+
+      const statusLabel = { open:'Регистрация', ongoing:'Идёт', finished:'Завершён' };
+      const statusBadge = { open:'badge-success', ongoing:'badge-warning', finished:'badge-info' };
+
+      tbody.innerHTML = list.map(t => `
+        <tr>
+          <td style="font-weight:600;color:var(--text-0)">${t.title}</td>
+          <td class="text-sm">${t.game}</td>
+          <td class="text-sm">${formatAdminDate(t.start_time)}</td>
+          <td class="text-sm">${t.participants_count}/${t.max_participants}</td>
+          <td class="font-orbitron text-sm" style="color:var(--accent-neon)">
+            ${Number(t.prize_pool).toLocaleString('ru-RU')} ₽
+          </td>
+          <td><span class="badge ${statusBadge[t.status]||'badge-info'}">
+            ${statusLabel[t.status]||t.status}
+          </span></td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm btn-icon"
+                      onclick="openEditTournamentModal(${t.id}, '${t.status}')"
+                      title="Статус">
+                <i class='bx bx-pencil'></i>
+              </button>
+              <button class="btn btn-danger btn-sm btn-icon"
+                      onclick="deleteTournament(${t.id}, '${t.title}')"
+                      title="Удалить">
+                <i class='bx bx-trash'></i>
+              </button>
+            </div>
+          </td>
+        </tr>`).join('');
+
+    } catch (err) {
+      showToast('Не удалось загрузить турниры', 'error');
+    }
   }
 
+  window.openCreateTournamentModal = function() {
+    showModal('Создать турнир', `
+      <div class="form-group">
+        <label class="form-label">Название</label>
+        <input id="tTitle" type="text" class="form-input" placeholder="NEXUS CS2 Open">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Игра</label>
+        <input id="tGame" type="text" class="form-input" placeholder="CS2">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <textarea id="tDesc" class="form-input" rows="3"
+                  placeholder="Описание турнира..."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Дата начала</label>
+          <input id="tDate" type="datetime-local" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Макс. команд</label>
+          <input id="tMax" type="number" class="form-input" value="8" min="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Призовой фонд (₽)</label>
+          <input id="tPrize" type="number" class="form-input" placeholder="10000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Взнос (₽, 0 = бесплатно)</label>
+          <input id="tFee" type="number" class="form-input" value="0" min="0">
+        </div>
+      </div>`,
+      async () => {
+        const payload = {
+          title:            document.getElementById('tTitle').value.trim(),
+          game:             document.getElementById('tGame').value.trim(),
+          description:      document.getElementById('tDesc').value.trim(),
+          start_time:       document.getElementById('tDate').value,
+          max_participants: parseInt(document.getElementById('tMax').value),
+          prize_pool:       parseFloat(document.getElementById('tPrize').value),
+          entry_fee:        parseFloat(document.getElementById('tFee').value) || 0,
+          status:           'open',
+        };
+        if (!payload.title || !payload.game || !payload.start_time) {
+          showToast('Заполни все обязательные поля', 'warning'); return;
+        }
+        await TournamentsAPI.create(payload);
+        showToast('Турнир создан!', 'success');
+        loadAdminTournaments();
+        closeModal();
+      }
+    );
+  };
+
+  window.openEditTournamentModal = function(id, currentStatus) {
+    showModal('Изменить статус турнира', `
+      <div class="form-group">
+        <label class="form-label">Статус</label>
+        <select id="tStatus" class="form-input">
+          <option value="open"     ${currentStatus==='open'     ?'selected':''}>Регистрация открыта</option>
+          <option value="ongoing"  ${currentStatus==='ongoing'  ?'selected':''}>Идёт</option>
+          <option value="finished" ${currentStatus==='finished' ?'selected':''}>Завершён</option>
+        </select>
+      </div>`,
+      async () => {
+        await TournamentsAPI.update(id, {
+          status: document.getElementById('tStatus').value
+        });
+        showToast('Статус обновлён', 'success');
+        loadAdminTournaments();
+        closeModal();
+      }
+    );
+  };
+
+  window.deleteTournament = async function(id, title) {
+    if (!confirm(`Удалить турнир "${title}"?`)) return;
+    try {
+      await TournamentsAPI.remove(id);
+      showToast('Турнир удалён', 'success');
+      loadAdminTournaments();
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    }
+  };
+
+  /* ════════════════════════════════════
+     НОВОСТИ
+  ════════════════════════════════════ */
   async function loadAdminNews() {
     try {
-      await NewsAPI.getAll({ all: true }); // включая черновики
-    } catch { /* fallback */ }
+      const list = await API.get('/news/', { all: true });
+      const tbody = document.querySelector('#page-news table tbody');
+      if (!tbody) return;
+
+      const catLabel = {
+        update:'Обновление', tournament:'Турнир', promo:'Акция', event:'Событие'
+      };
+      const catBadge = {
+        update:'badge-info', tournament:'badge-accent', promo:'badge-warning', event:'badge-cyan'
+      };
+
+      tbody.innerHTML = list.map(n => `
+        <tr>
+          <td style="font-weight:600;color:var(--text-0);max-width:240px">
+            ${n.title}
+          </td>
+          <td><span class="badge ${catBadge[n.category]||'badge-info'}">
+            ${catLabel[n.category]||n.category}
+          </span></td>
+          <td class="text-sm">${n.author_name || 'Команда NEXUS'}</td>
+          <td class="text-sm text-muted">${formatAdminDate(n.created_at)}</td>
+          <td><span class="badge ${n.is_published?'badge-success':'badge-warning'}">
+            ${n.is_published?'Опубликовано':'Черновик'}
+          </span></td>
+          <td>
+            <div class="flex gap-2">
+              ${!n.is_published ? `
+                <button class="btn btn-primary btn-sm"
+                        onclick="publishNews(${n.id})"
+                        style="font-size:11px">
+                  Опубликовать
+                </button>` : ''}
+              <button class="btn btn-ghost btn-sm btn-icon"
+                      onclick="openEditNewsModal(${n.id})"
+                      title="Редактировать">
+                <i class='bx bx-pencil'></i>
+              </button>
+              <button class="btn btn-danger btn-sm btn-icon"
+                      onclick="deleteNews(${n.id}, '${n.title.replace(/'/g,"\\'")}') "
+                      title="Удалить">
+                <i class='bx bx-trash'></i>
+              </button>
+            </div>
+          </td>
+        </tr>`).join('');
+
+    } catch (err) {
+      showToast('Не удалось загрузить новости', 'error');
+    }
   }
 
-  /* ══════════════════════════════════
+  function newsForm(n = {}) {
+    return `
+      <div class="form-group">
+        <label class="form-label">Заголовок</label>
+        <input id="nTitle" type="text" class="form-input"
+               placeholder="Заголовок новости"
+               value="${n.title || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Категория</label>
+        <select id="nCategory" class="form-input">
+          <option value="update"     ${n.category==='update'     ?'selected':''}>Обновление</option>
+          <option value="tournament" ${n.category==='tournament' ?'selected':''}>Турнир</option>
+          <option value="promo"      ${n.category==='promo'      ?'selected':''}>Акция</option>
+          <option value="event"      ${n.category==='event'      ?'selected':''}>Событие</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Текст новости</label>
+        <textarea id="nContent" class="form-input" rows="6"
+                  placeholder="Текст новости...">${n.content || ''}</textarea>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:0">
+        <input type="checkbox" id="nPublished" ${n.is_published?'checked':''}>
+        <label for="nPublished">Опубликовать сразу</label>
+      </div>`;
+  }
+
+  window.openCreateNewsModal = function() {
+    showModal('Создать новость', newsForm(), async () => {
+      const title   = document.getElementById('nTitle').value.trim();
+      const content = document.getElementById('nContent').value.trim();
+      if (!title || !content) {
+        showToast('Заполни заголовок и текст', 'warning'); return;
+      }
+      await NewsAPI.create({
+        title,
+        content,
+        category:     document.getElementById('nCategory').value,
+        is_published: document.getElementById('nPublished').checked,
+      });
+      showToast('Новость создана!', 'success');
+      loadAdminNews();
+      closeModal();
+    });
+  };
+
+  window.openEditNewsModal = async function(id) {
+    try {
+      const n = await NewsAPI.getOne(id);
+      showModal('Редактировать новость', newsForm(n), async () => {
+        await NewsAPI.update(id, {
+          title:        document.getElementById('nTitle').value.trim(),
+          content:      document.getElementById('nContent').value.trim(),
+          category:     document.getElementById('nCategory').value,
+          is_published: document.getElementById('nPublished').checked,
+        });
+        showToast('Новость обновлена', 'success');
+        loadAdminNews();
+        closeModal();
+      });
+    } catch (err) {
+      showToast('Ошибка загрузки: ' + err.message, 'error');
+    }
+  };
+
+  window.publishNews = async function(id) {
+    try {
+      await NewsAPI.publish(id);
+      showToast('Новость опубликована', 'success');
+      loadAdminNews();
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    }
+  };
+
+  window.deleteNews = async function(id, title) {
+    if (!confirm(`Удалить новость "${title}"?`)) return;
+    try {
+      await NewsAPI.remove(id);
+      showToast('Новость удалена', 'success');
+      loadAdminNews();
+    } catch (err) {
+      showToast('Ошибка: ' + err.message, 'error');
+    }
+  };
+
+  /* ════════════════════════════════════
+     УНИВЕРСАЛЬНЫЙ МОДАЛ
+  ════════════════════════════════════ */
+  function showModal(title, bodyHTML, onConfirm) {
+    let overlay = document.getElementById('adminModalOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'adminModalOverlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:3000;
+        background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
+        align-items:center; justify-content:center; padding:24px;`;
+      overlay.innerHTML = `
+        <div style="background:var(--bg-card);border:1px solid var(--accent-border);
+                    border-radius:var(--r-xl);max-width:540px;width:100%;
+                    box-shadow:0 0 60px rgba(124,58,237,0.25)">
+          <div style="padding:22px 26px;border-bottom:1px solid var(--border);
+                      display:flex;justify-content:space-between;align-items:center">
+            <h3 id="adminModalTitle" style="font-size:17px"></h3>
+            <button onclick="closeModal()"
+                    style="background:var(--bg-elevated);border:1px solid var(--border);
+                           border-radius:var(--r);width:32px;height:32px;display:flex;
+                           align-items:center;justify-content:center;cursor:pointer;
+                           color:var(--text-1);font-size:18px">✕</button>
+          </div>
+          <div id="adminModalBody" style="padding:24px 26px"></div>
+          <div style="padding:18px 26px;border-top:1px solid var(--border);
+                      display:flex;gap:10px;justify-content:flex-end">
+            <button onclick="closeModal()" class="btn btn-ghost">Отмена</button>
+            <button id="adminModalConfirm" class="btn btn-primary">Сохранить</button>
+          </div>
+        </div>`;
+      overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+      document.body.appendChild(overlay);
+    }
+
+    document.getElementById('adminModalTitle').textContent = title;
+    document.getElementById('adminModalBody').innerHTML    = bodyHTML;
+    document.getElementById('adminModalConfirm').onclick   = onConfirm;
+    overlay.style.display = 'flex';
+  }
+
+  window.closeModal = function() {
+    const overlay = document.getElementById('adminModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  /* ════════════════════════════════════
+     КНОПКИ "СОЗДАТЬ" В ЗАГОЛОВКАХ
+  ════════════════════════════════════ */
+  // Перехватываем статичные кнопки из HTML
+  document.querySelectorAll('.admin-header .btn-primary').forEach(btn => {
+    const text = btn.textContent.trim();
+    if (text.includes('турнир'))  btn.onclick = () => openCreateTournamentModal();
+    if (text.includes('новость')) btn.onclick = () => openCreateNewsModal();
+  });
+
+  /* ════════════════════════════════════
      ВСПОМОГАТЕЛЬНЫЕ
-  ══════════════════════════════════ */
-  function formatTimeShort(iso) {
-    if (!iso) return '?';
-    return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  ════════════════════════════════════ */
+  function formatAdminDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('ru-RU', {
+      day:'2-digit', month:'2-digit', year:'numeric'
+    });
   }
-  function durationHours(start, end) {
-    if (!start || !end) return '?';
-    return Math.round((new Date(end) - new Date(start)) / 3600000);
+  function formatAdminTime(iso) {
+    if (!iso) return '?';
+    return new Date(iso).toLocaleTimeString('ru-RU', {
+      hour:'2-digit', minute:'2-digit'
+    });
   }
 
-  // Демо-данные (fallback пока API не готов)
+  // Демо-данные для карты ПК (fallback)
   const stdStatus = ['free','busy','busy','reserved','free','busy','free','free','busy','busy','free','reserved','free','busy','free','free','busy','free','reserved','free','busy','free','free','busy','free','free','busy','free','free','free','busy','offline'];
   const vipStatus = ['busy','busy','free','busy','reserved','busy','free','busy','busy','offline','free','busy'];
   const cybStatus = ['busy','free','busy','free','reserved','busy','free','free','busy','free','free','busy'];
 
   function renderPcGrid(containerId, statuses, prefix) {
-    document.getElementById(containerId).innerHTML = statuses.map((s,i)=>`
-      <div class="pc-status-cell ${s}" title="${prefix}-${String(i+1).padStart(2,'0')} · ${s}">
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = statuses.map((s, i) => `
+      <div class="pc-status-cell ${s}"
+           title="${prefix}-${String(i+1).padStart(2,'0')} · ${s}">
         <div class="pc-dot"></div>
         <div>${String(i+1).padStart(2,'0')}</div>
       </div>`).join('');
   }
 
-  // Revenue chart
-  const data = [8200, 11400, 9800, 14100, 12600, 13900, 14820];
+  // График выручки
+  const revenueData = [8200,11400,9800,14100,12600,13900,14820];
   const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-  const max = Math.max(...data);
-  document.getElementById('revenueChart').innerHTML = data.map((v,i)=>`
-    <div class="chart-bar-wrap" title="${days[i]}: ${v.toLocaleString()} ₽">
-      <div class="chart-bar" style="height:${Math.round((v/max)*130)}px"></div>
-      <div class="chart-bar-label">${days[i]}</div>
-    </div>`).join('');
+  const maxVal = Math.max(...revenueData);
+  const chartEl = document.getElementById('revenueChart');
+  if (chartEl) {
+    chartEl.innerHTML = revenueData.map((v, i) => `
+      <div class="chart-bar-wrap" title="${days[i]}: ${v.toLocaleString()} ₽">
+        <div class="chart-bar" style="height:${Math.round((v/maxVal)*130)}px"></div>
+        <div class="chart-bar-label">${days[i]}</div>
+      </div>`).join('');
+  }
 
-  // Инициализация — загружаем данные дашборда
-  document.addEventListener('DOMContentLoaded', () => {
-    loadDashboard();
-    renderPcGrid('pcGrid', stdStatus, 'STD');
-    renderPcGrid('pcGridVip', vipStatus, 'VIP');
-    renderPcGrid('pcGridCyb', cybStatus, 'CYB');
-  });
+  /* ── Инициализация — загружаем дашборд сразу ── */
+  await loadDashboard();
+
+});
 </script>
 </body>
 </html>
