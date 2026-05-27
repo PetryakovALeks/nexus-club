@@ -247,6 +247,8 @@ const PCsAPI = {
   getAll(filters = {})   { return API.get('/pcs/', filters); },
   getOne(id)             { return API.get(`/pcs/${id}/`); },
   update(id, data)       { return API.patch(`/pcs/${id}/`, data); },   // admin
+  /** Занятые слоты для конкретного ПК на дату: [{start:'10:00',end:'12:00'},...] */
+  getBusySlots(id, date) { return API.get(`/pcs/${id}/busy_slots/`, { date }); },
 };
 
 const BookingsAPI = {

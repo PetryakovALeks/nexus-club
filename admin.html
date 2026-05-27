@@ -166,11 +166,6 @@
         <div class="admin-nav-item" onclick="showPage('tournaments',this)"><i class='bx bx-trophy'></i> Турниры</div>
         <div class="admin-nav-item" onclick="showPage('news',this)"><i class='bx bx-news'></i> Новости</div>
       </div>
-      <div class="admin-sidebar-section" style="margin-top:16px">
-        <div class="admin-sidebar-label">Система</div>
-        <div class="admin-nav-item"><i class='bx bx-cog'></i> Настройки</div>
-        <div class="admin-nav-item"><i class='bx bxs-report'></i> Отчёты</div>
-      </div>
     </div>
 
     <!-- Admin Main -->
@@ -223,8 +218,8 @@
             <div class="chart-header">
               <h3>Выручка за неделю</h3>
               <div class="flex gap-2">
-                <button class="btn btn-ghost btn-sm" style="font-size:11px">Неделя</button>
-                <button class="btn btn-primary btn-sm" style="font-size:11px">Месяц</button>
+                <button id="chartBtnWeek" class="btn btn-primary btn-sm" style="font-size:11px" onclick="switchChart('week',this)">Неделя</button>
+                <button id="chartBtnMonth" class="btn btn-ghost btn-sm" style="font-size:11px" onclick="switchChart('month',this)">Месяц</button>
               </div>
             </div>
             <div class="chart-canvas" id="revenueChart"></div>
@@ -300,20 +295,20 @@
               <span><span class="status-dot dot-red"></span> Занят</span>
               <span><span class="status-dot dot-yellow"></span> Бронь</span>
             </div>
-            <button class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Добавить ПК</button>
+            <button class="btn btn-primary btn-sm" onclick="openCreatePCModal()"><i class='bx bx-plus'></i> Добавить ПК</button>
           </div>
         </div>
         <div class="card mb-5"><div class="card-body">
-          <div class="flex justify-between items-center mb-4"><h3 style="font-size:14px;color:#60a5fa">Стандартная зона (32 места)</h3><span class="badge badge-info">22 заняты</span></div>
+          <div class="flex justify-between items-center mb-4"><h3 id="zoneStdTitle" style="font-size:14px;color:#60a5fa">Стандартная зона</h3><span id="zoneStdBusy" class="badge badge-info"></span></div>
           <div class="pc-status-grid" id="pcGrid"></div>
         </div></div>
         <div class="grid grid-2" style="gap:16px">
           <div class="card"><div class="card-body">
-            <div class="flex justify-between items-center mb-4"><h3 style="font-size:14px;color:var(--accent-neon)">VIP-зона (12 мест)</h3><span class="badge badge-accent">10 заняты</span></div>
+            <div class="flex justify-between items-center mb-4"><h3 id="zoneVipTitle" style="font-size:14px;color:var(--accent-neon)">VIP-зона</h3><span id="zoneVipBusy" class="badge badge-accent"></span></div>
             <div class="pc-status-grid" id="pcGridVip"></div>
           </div></div>
           <div class="card"><div class="card-body">
-            <div class="flex justify-between items-center mb-4"><h3 style="font-size:14px;color:#22d3ee">Киберспорт (12 мест)</h3><span class="badge badge-cyan">6 заняты</span></div>
+            <div class="flex justify-between items-center mb-4"><h3 id="zoneCybTitle" style="font-size:14px;color:#22d3ee">Киберспорт</h3><span id="zoneCybBusy" class="badge badge-cyan"></span></div>
             <div class="pc-status-grid" id="pcGridCyb"></div>
           </div></div>
         </div>
@@ -326,9 +321,9 @@
           <a href="booking.html" class="btn btn-primary btn-sm"><i class='bx bx-plus'></i> Создать бронь</a>
         </div>
         <div class="search-bar mb-4">
-          <div class="search-input-wrap"><i class='bx bx-search'></i><input type="text" class="form-input" placeholder="Поиск по игроку, ID, ПК..."></div>
-          <select class="form-input" style="width:auto"><option>Все статусы</option><option>Активные</option><option>Завершённые</option><option>Отменённые</option></select>
-          <input type="date" class="form-input" style="width:auto">
+          <div class="search-input-wrap"><i class='bx bx-search'></i><input id="bookingSearch" type="text" class="form-input" placeholder="Поиск по игроку, ID, ПК..." oninput="filterBookings()"></div>
+          <select id="bookingStatusFilter" class="form-input" style="width:auto" onchange="filterBookings()"><option value="">Все статусы</option><option value="active">Активные</option><option value="completed">Завершённые</option><option value="cancelled">Отменённые</option></select>
+          <input id="bookingDateFilter" type="date" class="form-input" style="width:auto" onchange="filterBookings()">
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="table">
@@ -523,13 +518,27 @@ document.addEventListener('DOMContentLoaded', async () => {
      КАРТА ПК
   ════════════════════════════════════ */
   function renderPcGridFromAPI(pcs) {
+    window.adminPCs = pcs;
     const groups = { standard: [], vip: [], cyber: [] };
     pcs.forEach(pc => { if (groups[pc.zone_type]) groups[pc.zone_type].push(pc); });
 
-    const gridMap = { standard:'pcGrid', vip:'pcGridVip', cyber:'pcGridCyb' };
+    const gridMap   = { standard:'pcGrid',     vip:'pcGridVip',   cyber:'pcGridCyb' };
+    const titleMap  = { standard:'zoneStdTitle',vip:'zoneVipTitle',cyber:'zoneCybTitle' };
+    const busyMap   = { standard:'zoneStdBusy', vip:'zoneVipBusy', cyber:'zoneCybBusy' };
+    const zoneName  = { standard:'Стандартная зона', vip:'VIP-зона', cyber:'Киберспорт' };
+
     Object.entries(groups).forEach(([zone, list]) => {
       const el = document.getElementById(gridMap[zone]);
-      if (!el || !list.length) return;
+      if (!el) return;
+
+      const total  = list.length;
+      const busy   = list.filter(p => p.status === 'busy' || p.status === 'reserved').length;
+
+      const titleEl = document.getElementById(titleMap[zone]);
+      const busyEl  = document.getElementById(busyMap[zone]);
+      if (titleEl) titleEl.textContent = `${zoneName[zone]} (${total} мест)`;
+      if (busyEl)  busyEl.textContent  = busy ? `${busy} заняты` : 'Все свободны';
+
       el.innerHTML = list.map(pc => `
         <div class="pc-status-cell ${pc.status}"
              title="${pc.label} · ${pc.status}"
@@ -573,57 +582,106 @@ document.addEventListener('DOMContentLoaded', async () => {
     );
   };
 
+  window.openCreatePCModal = function() {
+    const pcs = window.adminPCs || [];
+    const zones = {};
+    pcs.forEach(pc => { if (!zones[pc.zone_type]) zones[pc.zone_type] = pc.zone; });
+    const zoneNames = { standard: 'Стандартная', vip: 'VIP', cyber: 'Киберспорт' };
+    const zoneOpts = Object.entries(zones).map(([type, id]) =>
+      `<option value="${id}">${zoneNames[type] || type}</option>`).join('');
+
+    showModal('Добавить ПК', `
+      <div class="form-group">
+        <label class="form-label">Зона</label>
+        <select id="pcZone" class="form-input">${zoneOpts}</select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Номер ПК</label>
+          <input id="pcNumber" type="number" class="form-input" min="1" placeholder="например, 15">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Цена/час (₽)</label>
+          <input id="pcPrice" type="number" class="form-input" min="1" placeholder="80">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Характеристики</label>
+        <input id="pcSpecs" type="text" class="form-input" placeholder="RTX 4080, i7-13700K, 32GB">
+      </div>`,
+      async () => {
+        const zone   = document.getElementById('pcZone').value;
+        const number = parseInt(document.getElementById('pcNumber').value);
+        const price  = parseFloat(document.getElementById('pcPrice').value);
+        const specs  = document.getElementById('pcSpecs').value.trim();
+        if (!zone || !number || !price) { showToast('Заполни все обязательные поля', 'warning'); return; }
+        await API.post('/pcs/', { zone, number, specs, price_per_hour: price, status: 'free' });
+        showToast('ПК добавлен!', 'success');
+        loadPCsPage();
+        closeModal();
+      }
+    );
+  };
+
   /* ════════════════════════════════════
      БРОНИРОВАНИЯ
   ════════════════════════════════════ */
+  function renderBookingsTable(bookings) {
+    const tbody = document.querySelector('#page-bookings table tbody');
+    if (!tbody) return;
+    const statusCfg   = { active:'badge-success', completed:'badge-info', cancelled:'badge-danger' };
+    const statusLabel = { active:'Активно', completed:'Завершено', cancelled:'Отменено' };
+    tbody.innerHTML = bookings.map(b => `
+      <tr>
+        <td class="font-orbitron text-sm" style="color:var(--text-0)">#${b.id}</td>
+        <td>
+          <div class="user-row">
+            <div class="user-avatar-sm" style="font-size:12px">${(b.user_username||'?')[0].toUpperCase()}</div>
+            <div class="user-name-block">
+              <div class="user-name-val">${b.user_full_name || b.user_username}</div>
+              <div class="user-nick">@${b.user_username}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-accent">${b.pc_label || b.pc}</span></td>
+        <td class="text-sm">${formatAdminDate(b.start_time)} · ${formatAdminTime(b.start_time)}–${formatAdminTime(b.end_time)}</td>
+        <td class="text-sm">${b.tariff_name || '—'}</td>
+        <td class="font-orbitron text-sm" style="color:var(--accent-neon)">${Number(b.total_price).toLocaleString('ru-RU')} ₽</td>
+        <td><span class="badge ${statusCfg[b.status]||'badge-info'}">${statusLabel[b.status]||b.status}</span></td>
+        <td>
+          <div class="flex gap-2">
+            ${b.status === 'active' ? `
+              <button class="btn btn-danger btn-sm btn-icon" onclick="adminCancelBooking(${b.id})" title="Отменить">
+                <i class='bx bx-x'></i>
+              </button>` : `
+              <button class="btn btn-ghost btn-sm btn-icon" title="Просмотр"><i class='bx bx-show'></i></button>`}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  window.filterBookings = function() {
+    const q      = document.getElementById('bookingSearch')?.value.toLowerCase() || '';
+    const status = document.getElementById('bookingStatusFilter')?.value || '';
+    const date   = document.getElementById('bookingDateFilter')?.value || '';
+    const list   = window.adminBookings || [];
+    const filtered = list.filter(b => {
+      const matchQ = !q || (b.user_username||'').toLowerCase().includes(q)
+                        || (b.user_full_name||'').toLowerCase().includes(q)
+                        || String(b.id).includes(q)
+                        || (b.pc_label||'').toLowerCase().includes(q);
+      const matchS = !status || b.status === status;
+      const matchD = !date   || b.start_time?.startsWith(date);
+      return matchQ && matchS && matchD;
+    });
+    renderBookingsTable(filtered);
+  };
+
   async function loadAdminBookings() {
     try {
       const bookings = await BookingsAPI.getAll({ ordering: '-created_at' });
-      const tbody = document.querySelector('#page-bookings table tbody');
-      if (!tbody) return;
-
-      const statusCfg   = { active:'badge-success', completed:'badge-info', cancelled:'badge-danger' };
-      const statusLabel = { active:'Активно', completed:'Завершено', cancelled:'Отменено' };
-
-      tbody.innerHTML = bookings.map(b => `
-        <tr>
-          <td class="font-orbitron text-sm" style="color:var(--text-0)">#${b.id}</td>
-          <td>
-            <div class="user-row">
-              <div class="user-avatar-sm" style="font-size:12px">
-                ${(b.user_username||'?')[0].toUpperCase()}
-              </div>
-              <div class="user-name-block">
-                <div class="user-name-val">${b.user_full_name || b.user_username}</div>
-                <div class="user-nick">@${b.user_username}</div>
-              </div>
-            </div>
-          </td>
-          <td><span class="badge badge-accent">${b.pc_label || b.pc}</span></td>
-          <td class="text-sm">
-            ${formatAdminDate(b.start_time)} · ${formatAdminTime(b.start_time)}–${formatAdminTime(b.end_time)}
-          </td>
-          <td class="text-sm">${b.tariff_name || '—'}</td>
-          <td class="font-orbitron text-sm" style="color:var(--accent-neon)">
-            ${Number(b.total_price).toLocaleString('ru-RU')} ₽
-          </td>
-          <td><span class="badge ${statusCfg[b.status]||'badge-info'}">
-            ${statusLabel[b.status]||b.status}
-          </span></td>
-          <td>
-            <div class="flex gap-2">
-              ${b.status === 'active' ? `
-                <button class="btn btn-danger btn-sm btn-icon"
-                        onclick="adminCancelBooking(${b.id})"
-                        title="Отменить">
-                  <i class='bx bx-x'></i>
-                </button>` : `
-                <button class="btn btn-ghost btn-sm btn-icon" title="Просмотр">
-                  <i class='bx bx-show'></i>
-                </button>`}
-            </div>
-          </td>
-        </tr>`).join('');
+      window.adminBookings = bookings;
+      renderBookingsTable(bookings);
 
     } catch (err) {
       showToast('Не удалось загрузить бронирования', 'error');
@@ -1091,17 +1149,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // График выручки
-  const revenueData = [8200,11400,9800,14100,12600,13900,14820];
-  const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-  const maxVal = Math.max(...revenueData);
-  const chartEl = document.getElementById('revenueChart');
-  if (chartEl) {
-    chartEl.innerHTML = revenueData.map((v, i) => `
-      <div class="chart-bar-wrap" title="${days[i]}: ${v.toLocaleString()} ₽">
+  const chartDatasets = {
+    week:  { data: [8200,11400,9800,14100,12600,13900,14820], labels: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] },
+    month: { data: [62400,89300,78200,98100], labels: ['Нед 1','Нед 2','Нед 3','Нед 4'] },
+  };
+
+  function renderChart(period) {
+    const { data, labels } = chartDatasets[period];
+    const maxVal = Math.max(...data);
+    const chartEl = document.getElementById('revenueChart');
+    if (!chartEl) return;
+    chartEl.innerHTML = data.map((v, i) => `
+      <div class="chart-bar-wrap" title="${labels[i]}: ${v.toLocaleString()} ₽">
         <div class="chart-bar" style="height:${Math.round((v/maxVal)*130)}px"></div>
-        <div class="chart-bar-label">${days[i]}</div>
+        <div class="chart-bar-label">${labels[i]}</div>
       </div>`).join('');
+    const title = document.querySelector('.chart-header h3');
+    if (title) title.textContent = period === 'week' ? 'Выручка за неделю' : 'Выручка за месяц';
   }
+
+  window.switchChart = function(period, btn) {
+    document.querySelectorAll('.chart-header .btn').forEach(b => {
+      b.classList.remove('btn-primary');
+      b.classList.add('btn-ghost');
+    });
+    btn.classList.remove('btn-ghost');
+    btn.classList.add('btn-primary');
+    renderChart(period);
+  };
+
+  renderChart('week');
 
   /* ── Инициализация — загружаем дашборд сразу ── */
   await loadDashboard();

@@ -46,10 +46,10 @@
     .balance-card {
       background: var(--bg-elevated); border: 1px solid var(--border);
       border-radius: var(--r-lg); padding: 16px 20px;
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; flex-direction: column; gap: 10px;
       margin-bottom: 16px;
     }
-    .balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); margin-bottom: 4px; }
+    .balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-2); margin-bottom: 2px; }
     .balance-val { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 800; color: var(--green); }
 
     /* Nav menu */
@@ -208,11 +208,9 @@
           </div>
 
           <div class="balance-card">
-            <div>
-              <div class="balance-label">Баланс</div>
-              <div class="balance-val">1 200 ₽</div>
-            </div>
-            <button class="btn btn-success btn-sm" onclick="openTopup()"><i class='bx bx-plus'></i> Пополнить</button>
+            <div class="balance-label">Баланс</div>
+            <div class="balance-val">1 200 ₽</div>
+            <button class="btn btn-success btn-sm" onclick="openTopup()" style="width:100%"><i class='bx bx-plus'></i> Пополнить</button>
           </div>
 
           <div class="cabinet-nav">
@@ -220,7 +218,7 @@
             <div class="cabinet-nav-item" onclick="switchPane('wallet',this)"><i class='bx bxs-wallet'></i> Кошелёк</div>
             <div class="cabinet-nav-item" onclick="switchPane('tournaments',this)"><i class='bx bx-trophy'></i> Мои турниры</div>
             <div class="cabinet-nav-item" onclick="switchPane('settings',this)"><i class='bx bx-cog'></i> Настройки</div>
-            <div class="cabinet-nav-item" style="color:var(--red)"><i class='bx bx-log-out' style="color:var(--red)"></i> Выйти</div>
+            <div class="cabinet-nav-item" style="color:var(--red)" onclick="AuthAPI.logout()"><i class='bx bx-log-out' style="color:var(--red)"></i> Выйти</div>
           </div>
         </div>
 
@@ -240,74 +238,11 @@
             </div>
 
             <!-- Active bookings -->
-            <div id="bt-active">
-              <div class="booking-card">
-                <div class="booking-card-header">
-                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48291</div><span class="badge badge-success"><span class="status-dot dot-green"></span>Активно</span></div>
-                  <div class="text-muted text-sm">Создано: 3 июня 2025</div>
-                </div>
-                <div class="booking-body">
-                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">VIP-03</div></div>
-                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">10 июня 2025</div></div>
-                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">18:00 – 21:00</div></div>
-                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">VIP · 3ч</div></div>
-                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val text-accent">540 ₽</div></div>
-                </div>
-                <div class="booking-card-footer">
-                  <button class="btn btn-ghost btn-sm">Подробнее</button>
-                  <button class="btn btn-danger btn-sm">Отменить</button>
-                </div>
-              </div>
-              <div class="booking-card">
-                <div class="booking-card-header">
-                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48305</div><span class="badge badge-success"><span class="status-dot dot-green"></span>Активно</span></div>
-                  <div class="text-muted text-sm">Создано: 4 июня 2025</div>
-                </div>
-                <div class="booking-body">
-                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">CYB-02</div></div>
-                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">12 июня 2025</div></div>
-                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">20:00 – 22:00</div></div>
-                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">Кибер · 2ч</div></div>
-                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val text-accent">240 ₽</div></div>
-                </div>
-                <div class="booking-card-footer">
-                  <button class="btn btn-ghost btn-sm">Подробнее</button>
-                  <button class="btn btn-danger btn-sm">Отменить</button>
-                </div>
-              </div>
-            </div>
+            <div id="bt-active"><p class="text-muted" style="padding:32px 0;text-align:center">Загрузка...</p></div>
             <!-- Completed bookings -->
-            <div id="bt-completed" style="display:none">
-              <div class="booking-card">
-                <div class="booking-card-header">
-                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48100</div><span class="badge badge-info">Завершено</span></div>
-                  <div class="text-muted text-sm">28 мая 2025</div>
-                </div>
-                <div class="booking-body">
-                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">STD-07</div></div>
-                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">28 мая 2025</div></div>
-                  <div><div class="booking-field-label">Время</div><div class="booking-field-val">15:00 – 19:00</div></div>
-                  <div><div class="booking-field-label">Тариф</div><div class="booking-field-val">Стандарт · 4ч</div></div>
-                  <div><div class="booking-field-label">Сумма</div><div class="booking-field-val">320 ₽</div></div>
-                </div>
-                <div class="booking-card-footer"><button class="btn btn-ghost btn-sm">Подробнее</button></div>
-              </div>
-            </div>
+            <div id="bt-completed" style="display:none"><p class="text-muted" style="padding:32px 0;text-align:center">Загрузка...</p></div>
             <!-- Cancelled bookings -->
-            <div id="bt-cancelled" style="display:none">
-              <div class="booking-card" style="opacity:0.7">
-                <div class="booking-card-header">
-                  <div class="flex items-center gap-3"><div class="booking-id">#BK-48055</div><span class="badge badge-danger">Отменено</span></div>
-                  <div class="text-muted text-sm">20 мая 2025</div>
-                </div>
-                <div class="booking-body">
-                  <div><div class="booking-field-label">Место</div><div class="booking-field-val">VIP-05</div></div>
-                  <div><div class="booking-field-label">Дата</div><div class="booking-field-val">22 мая 2025</div></div>
-                  <div><div class="booking-field-label">Возврат</div><div class="booking-field-val text-success">+90 ₽</div></div>
-                </div>
-                <div class="booking-card-footer"><button class="btn btn-ghost btn-sm">Подробнее</button></div>
-              </div>
-            </div>
+            <div id="bt-cancelled" style="display:none"><p class="text-muted" style="padding:32px 0;text-align:center">Загрузка...</p></div>
           </div>
 
           <!-- WALLET -->
@@ -478,8 +413,9 @@
     try {
       const user = await ProfileAPI.get();
 
-      // Аватар — первая буква ника
-      document.querySelector('.avatar').textContent = (user.username || 'U')[0].toUpperCase();
+      // Аватар — первая буква ника (сохраняем badge-div)
+      const avatarEl = document.querySelector('.avatar');
+      avatarEl.innerHTML = (user.username || 'U')[0].toUpperCase() + '<div class="avatar-badge"></div>';
       document.querySelector('.profile-name').textContent = `${user.first_name} ${user.last_name}`;
       document.querySelector('.profile-nick').textContent = `@${user.username}`;
       document.querySelector('.balance-val').textContent  = formatMoney(user.balance);
@@ -502,11 +438,23 @@
     cancelled: { badge: 'badge-danger',  label: 'Отменено',   dot: 'dot-red'  },
   };
 
+  function getProfileLevel(total) {
+    if (total >= 50) return { level: Math.floor(total / 10), title: 'Легенда' };
+    if (total >= 20) return { level: Math.floor(total / 5),  title: 'Ветеран' };
+    if (total >= 10) return { level: Math.floor(total / 3),  title: 'Опытный' };
+    if (total >= 3)  return { level: total,                   title: 'Игрок' };
+    return { level: 1, title: 'Новичок' };
+  }
+
   async function loadBookings() {
     try {
       const bookings = await BookingsAPI.getMy();
       const groups = { active: [], completed: [], cancelled: [] };
       bookings.forEach(b => { if (groups[b.status]) groups[b.status].push(b); });
+
+      const lvl = getProfileLevel(bookings.filter(b => b.status !== 'cancelled').length);
+      const lvlEl = document.querySelector('.profile-level');
+      if (lvlEl) lvlEl.innerHTML = `<i class='bx bxs-star'></i> Уровень ${lvl.level} · ${lvl.title}`;
 
       ['active','completed','cancelled'].forEach(status => {
         const container = document.getElementById('bt-' + status);

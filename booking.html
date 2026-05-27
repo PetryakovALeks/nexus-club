@@ -339,7 +339,7 @@
           <div class="summary-row"><span class="summary-row-label">Цена/час</span><span class="summary-row-val" id="sum-rate">80 ₽</span></div>
           <div class="balance-row">
             <span class="balance-row-label"><i class='bx bxs-wallet'></i> Баланс</span>
-            <span class="balance-row-val">1 200 ₽</span>
+            <span class="balance-row-val" id="sum-balance">—</span>
           </div>
           <div class="summary-total">
             <span class="summary-total-label">К оплате</span>
@@ -383,6 +383,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       renderMiniGrid('all');
       renderTariffs();
+
+      // Загрузить баланс пользователя
+      try {
+        const profile = await ProfileAPI.get();
+        const balEl = document.getElementById('sum-balance');
+        if (balEl) balEl.textContent = formatMoney(profile.balance);
+      } catch { /* не критично */ }
 
       // Если пришли с каталога с ?pc=ID — предвыбираем ПК
       const params = new URLSearchParams(window.location.search);
@@ -438,18 +445,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ════════════════════════════════════
      ШАГ 2 — дата и время
   ════════════════════════════════════ */
-  const taken = ['10:00','11:00','14:00','15:00','21:00'];
+  let takenSlots = [];
 
-  function renderTimeSlots() {
+  async function loadBusySlots() {
+    const dateVal = document.getElementById('bookDate')?.value;
+    if (!state.pc || !dateVal) { takenSlots = []; return; }
+    try {
+      const slots = await PCsAPI.getBusySlots(state.pc, dateVal);
+      takenSlots = slots.map(s => s.start);
+    } catch {
+      takenSlots = [];
+    }
+  }
+
+  async function renderTimeSlots() {
+    await loadBusySlots();
     const slots = [];
     for (let h = 8; h <= 23; h++) slots.push(`${String(h).padStart(2,'0')}:00`);
     document.getElementById('timeGrid').innerHTML = slots.map(t => `
-      <div class="time-slot ${taken.includes(t) ? 'taken' : ''} ${state.time === t ? 'selected' : ''}"
+      <div class="time-slot ${takenSlots.includes(t) ? 'taken' : ''} ${state.time === t ? 'selected' : ''}"
            onclick="selectTime('${t}')">${t}</div>`).join('');
   }
 
   window.selectTime = function(t) {
-    if (taken.includes(t)) return;
+    if (takenSlots.includes(t)) return;
     state.time = t;
     document.querySelectorAll('.time-slot').forEach(el =>
       el.classList.toggle('selected', el.textContent.trim() === t));
@@ -496,7 +515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ════════════════════════════════════
      НАВИГАЦИЯ ПО ШАГАМ
   ════════════════════════════════════ */
-  window.goStep = function(n) {
+  window.goStep = async function(n) {
     document.querySelectorAll('.step-pane').forEach(p => p.classList.remove('active'));
     document.getElementById('pane-' + n).classList.add('active');
     state.step = n;
@@ -507,7 +526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.querySelectorAll('.step-line').forEach((l, i) =>
       l.classList.toggle('done', i < n - 1));
-    if (n === 2) renderTimeSlots();
+    if (n === 2) await renderTimeSlots();
     if (n === 4) fillConfirm();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -585,6 +604,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   state.date = new Date().toLocaleDateString('ru-RU');
   updateSummary();
   await initBooking();
+
+  // Перезагружать занятые слоты при смене даты (если уже на шаге 2)
+  document.getElementById('bookDate').addEventListener('change', async () => {
+    if (state.step === 2) await renderTimeSlots();
+  });
 
 }); // конец DOMContentLoaded
 </script>
